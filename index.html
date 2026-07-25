@@ -115,7 +115,7 @@
         min-height: 0;
         overflow: hidden;
     }
-    #canvas3d { display: block; width: 100%; height: 100%; }
+    #canvas3d { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 
     .hud {
         position: absolute;
@@ -147,6 +147,12 @@
         font-size: 0.58rem; letter-spacing: 0.06em; color: var(--dim); line-height: 1.7;
     }
     .hud-legend b { color: var(--cream); font-weight: 500; }
+    .drag-hint {
+        left: 50%; bottom: 52px; transform: translateX(-50%);
+        font-size: 0.6rem; letter-spacing: 0.06em; color: var(--dim);
+        border: 1px solid var(--border2); background: rgba(18,21,15,0.72);
+        padding: 7px 13px; transition: opacity .6s ease; white-space: nowrap;
+    }
 
     /* ===== KOLUMNA KONTROLEK (prawa strona) ===== */
     .controls {
@@ -376,6 +382,8 @@
                     <b>F</b> przód &middot; <b>B</b> tył &middot; <b>L</b> lewo &middot; <b>R</b> prawo &middot; <b>U</b> góra &middot; <b>D</b> dół
                 </div>
             </div>
+
+            <div class="hud drag-hint" id="dragHint">Przeciągnij, aby obrócić pole &middot; Shift = przechył &middot; 2&times; klik = reset</div>
         </div>
 
         <!-- ==== KONTROLKI (prawa strona) ==== -->
@@ -437,6 +445,7 @@
                     <button class="mode-btn" onclick="setRotationMode(event, 'gyroscope')">Żyroskop</button>
                     <button class="mode-btn" onclick="setRotationMode(event, 'auto')">Auto</button>
                 </div>
+                <div class="hint" style="margin-top:0;margin-bottom:16px;">Wskazówka: możesz też chwycić i obrócić sferę myszą na ekranie (Shift = przechył).</div>
 
                 <div class="slider-item">
                     <div class="slider-label">
@@ -920,21 +929,27 @@
         // ===========================================
         const D2R = Math.PI / 180;
         const field = { canvas: null, ctx: null, w: 0, h: 0, cx: 0, cy: 0, R: 0, dpr: 1 };
-        const VIEW_YAW = -24 * D2R, VIEW_TILT = 20 * D2R, FOCAL = 3.2;
+        const VIEW_TILT = 30 * D2R, FOCAL = 3.6;
+        const VC = Math.cos(VIEW_TILT), VS = Math.sin(VIEW_TILT);
 
         function rX(p, a) { const c = Math.cos(a), s = Math.sin(a); return { x: p.x, y: p.y * c - p.z * s, z: p.y * s + p.z * c }; }
         function rY(p, a) { const c = Math.cos(a), s = Math.sin(a); return { x: p.x * c + p.z * s, y: p.y, z: -p.x * s + p.z * c }; }
         function rZ(p, a) { const c = Math.cos(a), s = Math.sin(a); return { x: p.x * c - p.y * s, y: p.x * s + p.y * c, z: p.z }; }
 
+        // Kamera 3. osoby: zza i znad słuchacza, patrzy w przód i lekko w dół.
+        // Widać TYŁ głowy -> brak efektu lustra: +X (prawo/R) po prawej, +Z (przód/F) u góry.
         function project(p) {
-            let v = rX(rY(p, VIEW_YAW), VIEW_TILT);
-            const persp = FOCAL / (FOCAL - v.z);
-            return { x: field.cx + v.x * field.R * persp, y: field.cy - v.y * field.R * persp, z: v.z, s: persp };
+            const yv = p.y * VC + p.z * VS;      // przód (+Z) unosi się ku górze ekranu
+            const zv = -p.y * VS + p.z * VC;     // głębia: + = dalej (przód/góra), - = bliżej (tył/dół)
+            const persp = FOCAL / (FOCAL + zv);
+            return { x: field.cx + p.x * field.R * persp, y: field.cy - yv * field.R * persp, z: zv, s: persp };
         }
-        // Obrót gizmo słuchacza: world = Ry(yaw) * Rx(pitch) * Rz(roll) * local
-        function headTf(v) {
+        // EGOCENTRYCZNIE: głowa nieruchoma, obraca się POLE (sfera) o yaw/pitch/roll.
+        // fieldTf rotuje wektor pola: R = Ry(yaw)·Rx(pitch)·Rz(roll) — ten sam Euler co audio (Omnitone).
+        function fieldTf(v) {
             return rY(rX(rZ(v, state.rotationZ * D2R), state.rotationX * D2R), state.rotationY * D2R);
         }
+        function projField(p) { return project(fieldTf(p)); }
 
         function resizeField() {
             const wrap = document.getElementById('screen');
@@ -961,11 +976,11 @@
             return pts;
         }
         function strokeSpherical(pts, rgb, aBack, aFront, wBase) {
-            const ctx = field.ctx, proj = pts.map(project);
+            const ctx = field.ctx, proj = pts.map(projField);
             for (let i = 1; i < proj.length; i++) {
                 const a = proj[i - 1], b = proj[i];
                 const zt = (a.z + b.z) / 2;
-                const t = (zt + 1) / 2;
+                const t = (1 - zt) / 2;                 // bliżej kamery (przednia półkula) = jaśniej
                 const alpha = aBack + t * (aFront - aBack);
                 ctx.strokeStyle = 'rgba(' + rgb + ',' + alpha.toFixed(3) + ')';
                 ctx.lineWidth = wBase * (0.6 + t * 0.9);
@@ -983,17 +998,19 @@
         ];
 
         function drawNode(node) {
-            const ctx = field.ctx, p = project(node.v);
-            const t = (p.z + 1) / 2;
-            const alpha = 0.35 + t * 0.65;
-            const rad = 2.5 + t * 2.5;
+            const ctx = field.ctx, p = projField(node.v);
+            const near = (1 - p.z) / 2;                 // 1 = blisko kamery, 0 = daleko
+            const alpha = 0.5 + near * 0.5;
+            const rad = 2.5 + near * 2.2;
             ctx.fillStyle = 'rgba(' + node.c + ',' + alpha.toFixed(3) + ')';
             ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI * 2); ctx.fill();
-            ctx.font = '600 ' + (11 + t * 3).toFixed(0) + 'px Azeret Mono, monospace';
+            // etykieta odsunięta na zewnątrz (radialnie od środka ekranu)
+            let dx = p.x - field.cx, dy = p.y - field.cy;
+            const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+            ctx.font = '600 ' + (12 + near * 2).toFixed(0) + 'px Azeret Mono, monospace';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillStyle = 'rgba(' + node.c + ',' + (0.5 + t * 0.5).toFixed(3) + ')';
-            const off = 15 + t * 3;
-            ctx.fillText(node.t, p.x + (node.v.x) * 6, p.y - off * 0.0 - 12 - (node.v.y) * 2);
+            ctx.fillStyle = 'rgba(' + node.c + ',' + (0.6 + near * 0.4).toFixed(3) + ')';
+            ctx.fillText(node.t, p.x + dx * 16, p.y + dy * 16);
         }
 
         function drawArrowHead(from, to, color, size) {
@@ -1026,50 +1043,132 @@
                 strokeSpherical(meridian(lon), '255,171,0', 0.05, 0.16, 1.0);
             }
 
-            // węzły z tylnej półkuli (za głową)
-            const backNodes = CARD.filter(n => project(n.v).z < 0).sort((a, b) => project(a.v).z - project(b.v).z);
-            backNodes.forEach(drawNode);
+            // węzły pola z DALSZEJ półkuli (za słuchaczem) — rysowane najpierw
+            const farNodes = CARD.filter(n => projField(n.v).z > 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
+            farNodes.forEach(drawNode);
 
-            // === GIZMO SŁUCHACZA (obraca się yaw/pitch/roll) ===
+            // === SŁUCHACZ (NIERUCHOMY, widok zza głowy) — pole obraca się wokół niego ===
+            // Osie słuchacza są stałe (project bez fieldTf): przód = góra, prawe ucho = prawo.
             const O = project({ x: 0, y: 0, z: 0 });
-            const nose = project(headTf({ x: 0, y: 0, z: 0.72 }));
-            const earR = project(headTf({ x: 0.5, y: 0, z: 0 }));
-            const earL = project(headTf({ x: -0.5, y: 0, z: 0 }));
-            const up = project(headTf({ x: 0, y: 0.56, z: 0 }));
+            const noseP = project({ x: 0, y: 0, z: 0.95 });   // staly przod sluchacza (u gory)
+            const earRP = project({ x: 1, y: 0, z: 0 });       // stałe PRAWE ucho (R)
+            const earLP = project({ x: -1, y: 0, z: 0 });      // stałe LEWE ucho (L)
+            const upP = project({ x: 0, y: 0.95, z: 0 });      // stała góra głowy
+            const hr = 22 * O.s;
 
-            // głowa
-            const hr = 20 * O.s;
-            ctx.fillStyle = '#12150F';
-            ctx.beginPath(); ctx.arc(O.x, O.y, hr, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = 'rgba(240,235,224,0.35)'; ctx.lineWidth = 1.5;
+            const udir = (p) => { let dx = p.x - O.x, dy = p.y - O.y; const l = Math.hypot(dx, dy) || 1; return { x: dx / l, y: dy / l, l: l }; };
+            const nd = udir(noseP), er = udir(earRP), el = udir(earLP), ud = udir(upP);
+
+            // stożek kierunku patrzenia (cyan, półprzezroczysty) — dokąd zwrócony jest słuchacz
+            const coneLen = hr * 3.2, coneAng = 0.34;
+            const na = Math.atan2(nd.y, nd.x);
+            const cg = ctx.createLinearGradient(O.x, O.y, O.x + nd.x * coneLen, O.y + nd.y * coneLen);
+            cg.addColorStop(0, 'rgba(0,229,204,0.22)');
+            cg.addColorStop(1, 'rgba(0,229,204,0)');
+            ctx.fillStyle = cg;
+            ctx.beginPath();
+            ctx.moveTo(O.x, O.y);
+            ctx.arc(O.x, O.y, coneLen, na - coneAng, na + coneAng);
+            ctx.closePath(); ctx.fill();
+
+            // oś uszu (amber) przez głowę
+            ctx.strokeStyle = 'rgba(255,171,0,0.5)'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(O.x + el.x * hr * 1.15, O.y + el.y * hr * 1.15);
+            ctx.lineTo(O.x + er.x * hr * 1.15, O.y + er.y * hr * 1.15);
             ctx.stroke();
-            // wewnętrzny highlight
-            ctx.strokeStyle = 'rgba(240,235,224,0.10)'; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.arc(O.x, O.y, hr * 0.6, 0, Math.PI * 2); ctx.stroke();
 
-            // oś uszu (amber)
-            ctx.strokeStyle = 'rgba(255,171,0,0.55)'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(earL.x, earL.y); ctx.lineTo(earR.x, earR.y); ctx.stroke();
-            [earL, earR].forEach(e => {
-                ctx.fillStyle = 'rgba(255,171,0,0.85)';
-                ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, Math.PI * 2); ctx.fill();
+            // głowa (tarcza) — tył głowy zwrócony do widza
+            ctx.fillStyle = '#161A11';
+            ctx.beginPath(); ctx.arc(O.x, O.y, hr, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(240,235,224,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+            // uszy — bąbelki amber na obwodzie
+            [er, el].forEach(e => {
+                ctx.fillStyle = 'rgba(255,171,0,0.9)';
+                ctx.beginPath(); ctx.ellipse(O.x + e.x * hr, O.y + e.y * hr, 4.5, 6.5, na, 0, Math.PI * 2); ctx.fill();
             });
 
-            // oś góra (cream-dim, pokazuje roll/pitch)
-            ctx.strokeStyle = 'rgba(240,235,224,0.28)'; ctx.lineWidth = 1.4;
-            ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(up.x, up.y); ctx.stroke();
+            // znacznik góry głowy (cream-dim) — czytelny roll/pitch
+            ctx.strokeStyle = 'rgba(240,235,224,0.3)'; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(O.x + ud.x * hr * 1.3, O.y + ud.y * hr * 1.3); ctx.stroke();
 
-            // wektor patrzenia — nos (cyan, sygnał aktywny) z poświatą
+            // wektor patrzenia — NOS (cyan) z poświatą; min. długość dla czytelności
+            const noseLen = Math.max(noseP.l, hr * 1.9);
+            const tip = { x: O.x + nd.x * noseLen, y: O.y + nd.y * noseLen };
             ctx.save();
             ctx.shadowColor = 'rgba(0,229,204,0.7)'; ctx.shadowBlur = 10;
             ctx.strokeStyle = '#00E5CC'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(nose.x, nose.y); ctx.stroke();
-            drawArrowHead(O, nose, '#00E5CC', 10);
+            ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
+            drawArrowHead(O, tip, '#00E5CC', 11);
             ctx.restore();
 
-            // węzły z przedniej półkuli (przed głową)
-            const frontNodes = CARD.filter(n => project(n.v).z >= 0).sort((a, b) => project(a.v).z - project(b.v).z);
-            frontNodes.forEach(drawNode);
+            // podpis TY pod glowa
+            ctx.font = '500 10px Azeret Mono, monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(156,152,144,0.85)';
+            ctx.fillText('TY', O.x, O.y + hr + 13);
+
+            // węzły pola z BLIŻSZEJ półkuli (przed słuchaczem, na wierzchu)
+            const nearNodes = CARD.filter(n => projField(n.v).z <= 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
+            nearNodes.forEach(drawNode);
+        }
+
+        // ===========================================
+        // INTERAKCJA: przeciąganie sfery (mysz + dotyk)
+        // ===========================================
+        let drag = null;
+        function wrap180(v) { return ((v + 180) % 360 + 360) % 360 - 180; }
+
+        function pushRotationToUI() {
+            document.getElementById('rotationY').value = Math.round(state.rotationY);
+            document.getElementById('rotationX').value = Math.round(state.rotationX);
+            document.getElementById('rotationZ').value = Math.round(state.rotationZ);
+            syncRotationReadouts();
+            applyRotation();
+        }
+
+        function ensureManualMode() {
+            if (state.rotationMode === 'manual') return;
+            state.rotationMode = 'manual';
+            stopAutoSpin();
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === 'Ręczna'));
+            document.getElementById('hudMode').textContent = 'Tryb: Ręczna';
+        }
+
+        function hideDragHint() { const h = document.getElementById('dragHint'); if (h) h.style.opacity = '0'; }
+
+        function onPointerDown(e) {
+            drag = { x: e.clientX, y: e.clientY };
+            try { field.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+            field.canvas.style.cursor = 'grabbing';
+            ensureManualMode();
+            hideDragHint();
+            e.preventDefault();
+        }
+        function onPointerMove(e) {
+            if (!drag) return;
+            const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+            drag.x = e.clientX; drag.y = e.clientY;
+            const SENS = 0.45;
+            if (e.shiftKey) {
+                state.rotationZ = wrap180(state.rotationZ + dx * SENS);   // Shift = przechył (roll)
+            } else {
+                state.rotationY = wrap180(state.rotationY + dx * SENS);   // poziomo = azymut (yaw)
+                state.rotationX = Math.max(-90, Math.min(90, state.rotationX + dy * SENS)); // pionowo = elewacja (pitch)
+            }
+            pushRotationToUI();
+            e.preventDefault();
+        }
+        function onPointerUp(e) {
+            if (!drag) return;
+            drag = null;
+            field.canvas.style.cursor = 'grab';
+            try { field.canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        function resetRotation() {
+            state.rotationX = 0; state.rotationY = 0; state.rotationZ = 0;
+            pushRotationToUI();
         }
 
         function animationLoop() {
@@ -1085,6 +1184,12 @@
             field.ctx = field.canvas.getContext('2d');
             resizeField();
             window.addEventListener('resize', resizeField);
+            // interakcja: przeciąganie obraca sferę
+            field.canvas.style.cursor = 'grab';
+            field.canvas.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+            field.canvas.addEventListener('dblclick', resetRotation);
             syncRotationReadouts();
             animationLoop();
 
