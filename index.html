@@ -180,6 +180,15 @@
     }
     .mv.hot { color: var(--crimson); }
 
+    /* Wskaźnik limitera — crimson zgodnie z manifestem §01 (ograniczanie = stan krytyczny) */
+    .limiter-chip {
+        font-family: var(--mono); font-weight: 500; font-size: 0.64rem;
+        letter-spacing: 0.06em; color: var(--crimson);
+        border: 1px solid var(--crimson-dim); background: var(--crimson-dim);
+        padding: 3px 8px; justify-self: start;
+        font-variant-numeric: tabular-nums;
+    }
+
     /* --- Komunikat "rozpoznano plik" (gaśnie po chwili, plakietka zostaje) --- */
     .recognized {
         position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -293,6 +302,19 @@
     .override {
         font-family: var(--mono); font-size: 0.68rem; color: var(--dim);
         line-height: 1.6; margin-top: 12px;
+    }
+
+    /* --- Wybór formatu B-formatu (AmbiX / FuMa) w Szczegółach sygnału --- */
+    .seg-2 { grid-template-columns: repeat(2, 1fr); }
+    .fmt-row { margin-top: 16px; }
+    .fmt-label {
+        font-family: var(--mono); font-weight: 500; font-size: 0.7rem;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--dim); margin-bottom: 9px;
+    }
+    .fmt-hint {
+        font-family: var(--mono); font-size: 0.68rem; color: var(--dim);
+        line-height: 1.6; margin-top: 9px;
     }
     .btn-link {
         background: none; border: none; padding: 0; cursor: pointer;
@@ -572,6 +594,9 @@
                         <span class="mbar"><i id="mb2"></i></span>
                         <span class="mv" id="mv2">-inf</span>
                     </div>
+                    <div class="limiter-chip hidden" id="limiterChip" role="status" aria-live="polite">
+                        LIMITER &minus;0.0 dB
+                    </div>
                 </div>
             </div>
 
@@ -753,6 +778,20 @@
                     <div class="info-item"><span>Sample rate</span><span class="val data" id="sampleRate">&mdash;</span></div>
                     <div class="info-item"><span>Odczyt</span><span class="val" id="engineValue">&mdash;</span></div>
                     <div class="channel-warn hidden" id="channelWarn"></div>
+
+                    <!-- Format B-formatu: tylko dla pola 1. rzędu, przełącza się w trakcie grania -->
+                    <div class="fmt-row hidden" id="formatRow">
+                        <div class="fmt-label">Format B-formatu</div>
+                        <div class="seg seg-2">
+                            <button class="mode-btn active" data-fmt="ambix" aria-pressed="true"
+                                    onclick="setAmbiFormat('ambix')">AmbiX &middot; ACN/SN3D</button>
+                            <button class="mode-btn" data-fmt="fuma" aria-pressed="false"
+                                    onclick="setAmbiFormat('fuma')">FuMa &middot; starszy</button>
+                        </div>
+                        <div class="fmt-hint">Jeśli obrót pola działa odwrotnie albo dźwięk jest wąski i płaski,
+                            nagranie jest zapewne w FuMa &mdash; formacie starszych mikrofonów Soundfield.</div>
+                    </div>
+
                     <div class="override hidden" id="overrideRow">
                         Gdyby rozpoznanie się pomyliło:
                         <button class="btn-link" id="overrideBtn" onclick="overrideMode()">wymuś tryb binauralny</button>
@@ -826,9 +865,23 @@
             rotationMode: 'manual', autoSpinAngle: 0,
             rotationX: 0, rotationY: 0, rotationZ: 0,
 
+            // --- Wyjście główne: obie szyny schodzą się na master, master idzie przez limiter ---
+            masterGain: null, limiter: null, limiterRed: 0, limiterHold: 0,
+
+            // --- Ambisonia: rząd pola i renderer dopasowany do rzędu ---
+            // ambiOrder: 1 = FOA (4 kan.), 2 = HOA 2. rzędu (9 kan.), 3 = HOA 3. rzędu (16 kan.)
+            // rendererOrder: rząd, dla którego zbudowany jest aktualny renderer Omnitone
+            ambiOrder: 1, rendererOrder: null,
+
+            // --- Format B-formatu dla 4 kanałów: 'ambix' (ACN/SN3D) albo 'fuma' (starszy) ---
+            // Konwersja FuMa -> AmbiX siedzi w grafie audio, więc przełącza się w trakcie grania.
+            ambiFormat: 'ambix', fmtSplitter: null, fmtGains: [], fmtMerger: null,
+
             // --- CO odtwarzamy ---
-            // 'foa'      = 4-kanałowy AmbiX -> dekoder Omnitone + rotacja pola
+            // 'foa'      = sygnał ambisoniczny (FOA lub HOA) -> dekoder Omnitone + rotacja pola
             // 'binaural' = 2-kanałowy sygnał gotowy na słuchawki -> prosto na wyjście
+            // Nazwa 'foa' została z v5 jako identyfikator SZYNY ambisonicznej — rząd pola
+            // trzymamy osobno w state.ambiOrder, żeby nie przepisywać wszystkich porównań.
             mode: 'foa',
             // --- JAK odtwarzamy ---
             // 'buffer' = AudioBufferSourceNode (cały plik w pamięci; jedyna droga dla FOA)
@@ -857,11 +910,29 @@
             // Kontekst i szyna binauralna powstają ZAWSZE — nie zależą od Omnitone.
             // Dzięki temu pliki 2-kanałowe grają nawet gdy CDN z Omnitone jest niedostępny.
             state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Wyjście główne: master -> limiter -> destination.
+            // Limiter chroni uszy i głośniki, gdy nagranie ambisoniczne po zdekodowaniu
+            // binauralnym wychodzi głośniej niż materiał źródłowy (typowe dla HOA).
+            state.masterGain = state.audioContext.createGain();
+            state.limiter = state.audioContext.createDynamicsCompressor();
+            state.limiter.threshold.value = -1;    // tuż pod 0 dBFS
+            state.limiter.knee.value = 0;          // twarde kolano = limiter, nie kompresor
+            state.limiter.ratio.value = 20;
+            state.limiter.attack.value = 0.002;
+            state.limiter.release.value = 0.2;
+            state.masterGain.connect(state.limiter);
+            state.limiter.connect(state.audioContext.destination);
+
             state.gainNode = state.audioContext.createGain();
             state.gainNode.gain.value = state.volume;
+            // HOA to 9 lub 16 kanałów. Domyślna interpretacja «speakers» miksowałaby je
+            // jak układ głośnikowy — dla ambisonii kanały muszą przejść bez zmian.
+            state.gainNode.channelCountMode = 'max';
+            state.gainNode.channelInterpretation = 'discrete';
             state.binGain = state.audioContext.createGain();
             state.binGain.gain.value = state.volume;
-            state.binGain.connect(state.audioContext.destination);
+            state.binGain.connect(state.masterGain);
 
             // Miernik L/R dla trybu binauralnego (odczep, nie wpływa na dźwięk)
             state.splitter = state.audioContext.createChannelSplitter(2);
@@ -881,6 +952,14 @@
             state.gainNode.connect(state.foaSplitter);
             state.foaSplitter.connect(state.analyserW, 0);
 
+            // Trasowanie formatu B-formatu (tylko 4 kanały): gainNode -> splitter -> 4 gainy -> merger.
+            // Przy AmbiX to przejście 1:1, przy FuMa przestawia kanały i podbija W o √2.
+            state.fmtSplitter = state.audioContext.createChannelSplitter(4);
+            state.fmtMerger = state.audioContext.createChannelMerger(4);
+            state.fmtGains = [];
+            for (let i = 0; i < 4; i++) { state.fmtGains.push(state.audioContext.createGain()); }
+            applyFormatRouting(state.ambiFormat);
+
             updateAudioContextStatus();
 
             try {
@@ -890,11 +969,7 @@
                     throw new Error('Biblioteka Omnitone nie została załadowana.');
                 }
                 updateStatus('Inicjalizacja Omnitone...', 'loading');
-                state.foaRenderer = Omnitone.createFOARenderer(state.audioContext, {});
-                await state.foaRenderer.initialize();
-
-                state.gainNode.connect(state.foaRenderer.input);
-                state.foaRenderer.output.connect(state.audioContext.destination);
+                await ensureRenderer(1);
 
                 state.isOmnitoneReady = true;
                 applyRotation();
@@ -902,8 +977,114 @@
             } catch (error) {
                 console.error('Error initializing Omnitone:', error);
                 state.isOmnitoneReady = false;
-                updateStatus('Dekoder FOA niedostępny (' + error.message + '). Pliki 2-kanałowe binauralne nadal zagrają.', 'error');
+                updateStatus('Dekoder ambisoniczny niedostępny (' + error.message + '). Pliki 2-kanałowe binauralne nadal zagrają.', 'error');
             }
+        }
+
+        // ===========================================
+        // AMBISONIA: RZĄD POLA, RENDERER, FORMAT B-FORMATU
+        // ===========================================
+        // Rząd ambisonii z liczby kanałów w konwencji ACN: 4 -> 1, 9 -> 2, 16 -> 3.
+        function ambisonicOrderForChannels(ch) {
+            if (ch === 4) return 1;
+            if (ch === 9) return 2;
+            if (ch === 16) return 3;
+            return null;
+        }
+
+        // Etykieta trybu dla plakietki, HUD-u i Szczegółów.
+        function ambiLabel(order, withChannels) {
+            const ch = order === 3 ? 16 : order === 2 ? 9 : 4;
+            const name = order === 1 ? 'AmbiX FOA' : 'AmbiX HOA ' + order + '. rzędu';
+            return withChannels ? name + ' · ' + ch + ' kan.' : name;
+        }
+
+        // Buduje (albo zwraca gotowy) renderer Omnitone dla danego rzędu i przepina graf.
+        // FOA idzie przez trasowanie formatu, HOA prosto — 4-kanałowy splitter obciąłby
+        // wyższe składowe pola.
+        async function ensureRenderer(order) {
+            if (state.foaRenderer && state.rendererOrder === order) return state.foaRenderer;
+            if (typeof Omnitone === 'undefined') { throw new Error('Biblioteka Omnitone nie została załadowana.'); }
+
+            // Najpierw odpinamy stare połączenia — inaczej po zmianie rzędu sygnał
+            // szedłby przez dwa renderery naraz i sumował się na wyjściu.
+            try { state.gainNode.disconnect(state.fmtSplitter); } catch (e) {}
+            try { state.fmtMerger.disconnect(); } catch (e) {}
+            if (state.foaRenderer) {
+                try { state.gainNode.disconnect(state.foaRenderer.input); } catch (e) {}
+                try { state.foaRenderer.output.disconnect(); } catch (e) {}
+                state.foaRenderer = null;
+                state.rendererOrder = null;
+            }
+
+            const renderer = order === 1
+                ? Omnitone.createFOARenderer(state.audioContext, {})
+                : Omnitone.createHOARenderer(state.audioContext, { ambisonicOrder: order });
+            await renderer.initialize();
+
+            if (order === 1) {
+                state.gainNode.connect(state.fmtSplitter);
+                state.fmtMerger.connect(renderer.input);
+            } else {
+                state.gainNode.connect(renderer.input);
+            }
+            renderer.output.connect(state.masterGain);
+
+            state.foaRenderer = renderer;
+            state.rendererOrder = order;
+            applyRotation();
+            return renderer;
+        }
+
+        // Przepina 4 kanały wejściowe: AmbiX zostawia bez zmian, FuMa przestawia na ACN.
+        // FuMa ma kolejność W X Y Z i W ściszone o 3 dB (MaxN), ACN ma W Y Z X i SN3D.
+        function applyFormatRouting(format) {
+            state.ambiFormat = format;
+            if (!state.fmtSplitter || !state.fmtMerger) return;
+
+            state.fmtGains.forEach(g => { try { g.disconnect(); } catch (e) {} });
+            try { state.fmtSplitter.disconnect(); } catch (e) {}
+
+            const mapping = format === 'fuma'
+                ? [
+                    { from: 0, to: 0, gain: Math.SQRT2 },   // FuMa W -> ACN 0, wyrównanie poziomu
+                    { from: 2, to: 1, gain: 1 },            // FuMa Y -> ACN 1
+                    { from: 3, to: 2, gain: 1 },            // FuMa Z -> ACN 2
+                    { from: 1, to: 3, gain: 1 }             // FuMa X -> ACN 3
+                  ]
+                : [
+                    { from: 0, to: 0, gain: 1 },
+                    { from: 1, to: 1, gain: 1 },
+                    { from: 2, to: 2, gain: 1 },
+                    { from: 3, to: 3, gain: 1 }
+                  ];
+
+            mapping.forEach((m, idx) => {
+                const g = state.fmtGains[idx];
+                g.gain.value = m.gain;
+                state.fmtSplitter.connect(g, m.from);
+                g.connect(state.fmtMerger, 0, m.to);
+            });
+        }
+
+        // Przełącznik w Szczegółach sygnału — działa na żywo, bez ponownego wczytywania pliku.
+        function setAmbiFormat(format) {
+            if (state.ambiFormat === format) return;
+            applyFormatRouting(format);
+            syncFormatRow();
+        }
+
+        // Wiersz wyboru formatu pokazujemy tylko wtedy, gdy realnie coś zmienia:
+        // dla pola pierwszego rzędu. Przy HOA FuMa nie występuje.
+        function syncFormatRow() {
+            const row = document.getElementById('formatRow');
+            if (!row) return;
+            const show = state.hasFile && state.mode === 'foa' && state.ambiOrder === 1;
+            row.classList.toggle('hidden', !show);
+            document.querySelectorAll('#formatRow .mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.fmt === state.ambiFormat);
+                btn.setAttribute('aria-pressed', btn.dataset.fmt === state.ambiFormat ? 'true' : 'false');
+            });
         }
 
         // ===========================================
@@ -1023,6 +1204,92 @@
             return out;
         }
 
+        // ===========================================
+        // WŁASNY DEKODER PCM WAV — obejście ograniczenia przeglądarki
+        // ===========================================
+        // Chromium NIE dekoduje przez decodeAudioData WAV-ów o 9 i 16 kanałach.
+        // Sprawdzone w tej sesji: 2-8 oraz 10 kanałów przechodzą, 9 / 12 / 16 nie —
+        // niezależnie od dwChannelMask i od tego, czy nagłówek jest zwykły czy EXTENSIBLE.
+        // 9 i 16 kanałów to dokładnie HOA 2. i 3. rzędu, więc bez tego obejścia
+        // obsługa HOA byłaby wyłącznie teoretyczna. Dla tych plików rozpakowujemy
+        // próbki sami i budujemy AudioBuffer ręcznie (AudioBuffer znosi do 32 kanałów).
+        function decodePcmWav(arrayBuffer) {
+            const b = new Uint8Array(arrayBuffer);
+            const dv = new DataView(arrayBuffer);
+            const tag = (o, s) => {
+                if (o + s.length > b.length) return false;
+                for (let i = 0; i < s.length; i++) { if (b[o + i] !== s.charCodeAt(i)) return false; }
+                return true;
+            };
+            if (!((tag(0, 'RIFF') || tag(0, 'RF64')) && tag(8, 'WAVE'))) return null;
+
+            let p = 12, fmt = null, dataStart = -1, dataLen = 0;
+            while (p + 8 <= b.length) {
+                const id = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+                let size = dv.getUint32(p + 4, true);
+                const body = p + 8;
+                if (id === 'fmt ') {
+                    let format = dv.getUint16(body, true);
+                    const channels = dv.getUint16(body + 2, true);
+                    const sampleRate = dv.getUint32(body + 4, true);
+                    const blockAlign = dv.getUint16(body + 12, true);
+                    const bits = dv.getUint16(body + 14, true);
+                    // EXTENSIBLE: prawdziwy format siedzi w pierwszych dwóch bajtach SubFormat GUID
+                    if (format === 0xFFFE && size >= 40) { format = dv.getUint16(body + 24, true); }
+                    fmt = { format: format, channels: channels, sampleRate: sampleRate, blockAlign: blockAlign, bits: bits };
+                } else if (id === 'data') {
+                    dataStart = body;
+                    // RF64 i pliki strumieniowane mają rozmiar 0xFFFFFFFF — bierzemy resztę pliku
+                    dataLen = (size === 0xFFFFFFFF || body + size > b.length) ? (b.length - body) : size;
+                    break;
+                }
+                if (size === 0) break;
+                p = body + size + (size % 2);
+            }
+            if (!fmt || dataStart < 0 || !fmt.channels || !fmt.blockAlign) return null;
+            // 1 = PCM całkowitoliczbowy, 3 = IEEE float
+            if (fmt.format !== 1 && fmt.format !== 3) return null;
+            if (![16, 24, 32].includes(fmt.bits)) return null;
+
+            const frames = Math.floor(dataLen / fmt.blockAlign);
+            if (frames <= 0) return null;
+            const out = state.audioContext.createBuffer(fmt.channels, frames, fmt.sampleRate);
+            const bytes = fmt.bits / 8;
+
+            for (let c = 0; c < fmt.channels; c++) {
+                const dst = out.getChannelData(c);
+                let off = dataStart + c * bytes;
+                for (let i = 0; i < frames; i++, off += fmt.blockAlign) {
+                    let v;
+                    if (fmt.format === 3) {
+                        v = fmt.bits === 32 ? dv.getFloat32(off, true) : 0;
+                    } else if (fmt.bits === 16) {
+                        v = dv.getInt16(off, true) / 32768;
+                    } else if (fmt.bits === 24) {
+                        const u = b[off] | (b[off + 1] << 8) | (b[off + 2] << 16);
+                        v = ((u & 0x800000) ? u - 0x1000000 : u) / 8388608;
+                    } else {
+                        v = dv.getInt32(off, true) / 2147483648;
+                    }
+                    dst[i] = v;
+                }
+            }
+            return out;
+        }
+
+        // Wybór drogi dekodowania. UWAGA: decodeAudioData odpina (detach) przekazany
+        // ArrayBuffer, więc po jego niepowodzeniu nie da się już spróbować ręcznie —
+        // decyzję podejmujemy z góry, na podstawie nagłówka.
+        async function decodeAudio(arrayBuffer, probe) {
+            const isWav = !!(probe && probe.container === 'WAV');
+            const manyChannels = !!(probe && probe.channels && probe.channels > 8);
+            if (isWav && manyChannels) {
+                const manual = decodePcmWav(arrayBuffer);
+                if (manual) return manual;
+            }
+            return await state.audioContext.decodeAudioData(arrayBuffer);
+        }
+
         // 'foa' | 'binaural' | 'unknown' (unknown = trzeba zdekodować, żeby się dowiedzieć)
         function decideMode(probe) {
             if (state.sourceMode === 'foa') return 'foa';
@@ -1118,7 +1385,7 @@
                     return;
                 }
                 if (target === 'foa' && !state.isOmnitoneReady) {
-                    updateStatus('Plik wygląda na AmbiX FOA, ale dekoder Omnitone się nie wczytał. Odśwież stronę.', 'error');
+                    updateStatus('Plik wygląda na ambisoniczny, ale dekoder Omnitone się nie wczytał. Odśwież stronę.', 'error');
                     return;
                 }
                 const mb = Math.round(file.size / 1048576);
@@ -1238,7 +1505,7 @@
         async function decodeAudioFile(arrayBuffer, fileName, probe) {
             try {
                 updateStatus('Dekodowanie audio...', 'loading');
-                const decodedBuffer = await state.audioContext.decodeAudioData(arrayBuffer);
+                const decodedBuffer = await decodeAudio(arrayBuffer, probe);
                 stopAudio();
                 releaseStream();
 
@@ -1252,8 +1519,19 @@
                 state.pauseTime = 0;
 
                 if (state.mode === 'foa' && !state.isOmnitoneReady) {
-                    updateStatus('Dekoder FOA niedostępny — nie da się odtworzyć pliku ambisonicznego. Odśwież stronę.', 'error');
+                    updateStatus('Dekoder ambisoniczny niedostępny — nie da się odtworzyć tego pliku. Odśwież stronę.', 'error');
                     return;
+                }
+
+                // Rząd pola wynika z liczby kanałów; renderer Omnitone trzeba pod niego przepiąć.
+                if (state.mode === 'foa') {
+                    state.ambiOrder = ambisonicOrderForChannels(ch) || 1;
+                    try {
+                        await ensureRenderer(state.ambiOrder);
+                    } catch (e) {
+                        updateStatus('Nie udało się uruchomić dekodera dla ' + ambiLabel(state.ambiOrder, false) + ': ' + e.message, 'error');
+                        return;
+                    }
                 }
 
                 const srcRate = (probe && probe.sampleRate) || decodedBuffer.sampleRate;
@@ -1266,8 +1544,8 @@
 
                 const warn = document.getElementById('channelWarn');
                 let msg = '';
-                if (state.mode === 'foa' && ch !== 4) {
-                    msg = 'Uwaga: dekoder FOA oczekuje 4 kanałów AmbiX (ACN/SN3D), a plik ma ' + ch + '. Odtwarzanie może być nieprawidłowe.';
+                if (state.mode === 'foa' && !ambisonicOrderForChannels(ch)) {
+                    msg = 'Uwaga: dekoder ambisoniczny oczekuje 4 kanałów (FOA), 9 (HOA 2. rzędu) albo 16 (HOA 3. rzędu), a plik ma ' + ch + '. Pole zostanie potraktowane jak FOA i odtwarzanie może być nieprawidłowe.';
                 } else if (state.mode === 'binaural' && ch !== 2) {
                     msg = 'Uwaga: tryb binauralny oczekuje 2 kanałów, a plik ma ' + ch + '.';
                 } else if (state.mode === 'binaural' && state.sourceMode === 'auto') {
@@ -1617,10 +1895,12 @@
             document.getElementById('hudMeter').classList.toggle('hidden', !state.hasFile);
 
             const mv = document.getElementById('modeValue');
-            mv.textContent = bin ? 'Binaural · 2 kan.' : 'AmbiX FOA · 4 kan.';
+            mv.textContent = bin ? 'Binaural · 2 kan.' : ambiLabel(state.ambiOrder, true);
             mv.className = 'val ' + (bin ? 'mode-bin' : 'mode-foa');
 
-            document.getElementById('hudKicker').textContent = bin ? 'Sygnał binauralny' : 'Pole dźwiękowe FOA';
+            document.getElementById('hudKicker').textContent = bin
+                ? 'Sygnał binauralny'
+                : (state.ambiOrder > 1 ? 'Pole dźwiękowe HOA (' + state.ambiOrder + '. rząd)' : 'Pole dźwiękowe FOA');
             document.getElementById('hudLegend').classList.toggle('hidden', !state.hasFile);
             document.getElementById('hudLegend').innerHTML = bin
                 ? '<b>L</b> lewe ucho &middot; <b>R</b> prawe ucho &middot; kierunki zapisane w sygnale'
@@ -1639,6 +1919,7 @@
             }
             if (field.canvas) { field.canvas.style.cursor = bin ? 'default' : 'grab'; }
             syncOverrideRow();
+            syncFormatRow();
         }
 
         // Plakietka na ekranie + jednorazowy komunikat "rozpoznano" — to zastępuje
@@ -1646,7 +1927,7 @@
         function announceFile(fileName, channels, sampleRate, probe) {
             const bin = state.mode === 'binaural';
             const dim = state.hasFile ? 1 : 0.45;   // stan pusty: wizualizacja wycofana
-            const kind = bin ? 'Binaural' : 'AmbiX FOA';
+            const kind = bin ? 'Binaural' : ambiLabel(state.ambiOrder, false);
             const cont = (probe && probe.container) ? probe.container : 'audio';
             const rate = sampleRate ? Math.round(sampleRate / 1000) + ' kHz' : '';
 
@@ -2022,7 +2303,29 @@
             val.classList.toggle('hot', hot);
         }
 
+        // Limiter pokazujemy tylko wtedy, gdy realnie ogranicza — z krótkim przytrzymaniem,
+        // żeby plakietka nie migotała przy pojedynczych transjentach.
+        function updateLimiterChip() {
+            const chip = document.getElementById('limiterChip');
+            if (!chip || !state.limiter) return;
+            // W starszych przeglądarkach reduction bywa AudioParamem zamiast liczby
+            const r = state.limiter.reduction;
+            const red = (typeof r === 'number') ? r : (r && typeof r.value === 'number' ? r.value : 0);
+            const now = performance.now();
+            // Odczyt bierzemy pod uwagę TYLKO w trakcie odtwarzania. Chromium potrafi zwracać
+            // z DynamicsCompressor.reduction niezerową wartość (widziane -10 dB) przy ciszy,
+            // zanim węzeł cokolwiek przetworzył — bez tego warunku plakietka zapalała się
+            // od razu po wczytaniu pliku, choć nic jeszcze nie grało.
+            if (state.isPlaying && red < -0.5) { state.limiterRed = red; state.limiterHold = now + 700; }
+            const active = state.hasFile && state.isPlaying && now < state.limiterHold;
+            chip.classList.toggle('hidden', !active);
+            if (active) {
+                chip.textContent = 'LIMITER −' + Math.abs(state.limiterRed).toFixed(1) + ' dB';
+            }
+        }
+
         function updateMeters() {
+            updateLimiterChip();
             if (!state.hasFile) return;
             if (state.mode === 'binaural') {
                 state.meterL = smoothLevel(state.meterL, readLevel(state.analyserL));
