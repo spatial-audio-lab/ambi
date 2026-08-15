@@ -123,9 +123,9 @@
         pointer-events: none;
         user-select: none;
     }
-    .hud-tl { top: 18px; left: 20px; }
-    .hud-tr { top: 18px; right: 20px; text-align: right; }
-    .hud-bl { bottom: 16px; left: 20px; }
+    /* HUD zaczyna się PONIŻEJ górnego paska ekranu — inaczej nachodzi na plakietkę pliku */
+    .hud-tl { top: 60px; left: 20px; }
+    .hud-tr { top: 60px; right: 20px; text-align: right; }
     .hud-kicker {
         font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
         color: var(--dim); margin-bottom: 12px;
@@ -147,11 +147,81 @@
         font-size: 0.58rem; letter-spacing: 0.06em; color: var(--dim); line-height: 1.7;
     }
     .hud-legend b { color: var(--cream); font-weight: 500; }
-    .drag-hint {
-        left: 50%; bottom: 52px; transform: translateX(-50%);
-        font-size: 0.6rem; letter-spacing: 0.06em; color: var(--dim);
-        border: 1px solid var(--border2); background: rgba(18,21,15,0.72);
-        padding: 7px 13px; transition: opacity .6s ease; white-space: nowrap;
+
+    /* --- Górny pasek ekranu: słuchawki (manifest §12) + plakietka rozpoznanego pliku --- */
+    .screen-top {
+        position: absolute; top: 0; left: 0; right: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 12px 20px; pointer-events: none; flex-wrap: wrap;
+    }
+    .hp-strip {
+        font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+        color: var(--amber); border: 1px solid var(--amber-dim);
+        background: rgba(255,171,0,0.06); padding: 6px 11px;
+    }
+    .file-badge {
+        font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.06em;
+        color: var(--cream); border: 1px solid var(--border2);
+        background: rgba(18,21,15,0.85); padding: 6px 12px;
+    }
+    .file-badge.is-foa { color: var(--amber); border-color: var(--amber-dim); }
+    .file-badge.is-bin { color: var(--cyan); border-color: rgba(0,229,204,0.3); }
+
+    /* --- Miernik poziomu w HUD (W dla AmbiX, L/R dla binauralnego) --- */
+    .hud-meter { margin-top: 14px; display: grid; gap: 5px; }
+    .mrow { display: grid; grid-template-columns: 14px 96px 56px; align-items: center; gap: 8px; }
+    .mk { font-family: var(--mono); font-size: 0.6rem; color: var(--dim); }
+    .mbar { height: 5px; background: rgba(240,235,224,0.08); display: block; }
+    .mbar i { display: block; height: 100%; width: 0%; background: var(--cyan); }
+    .mbar i.hot { background: var(--crimson); }
+    .mv {
+        font-family: var(--mono); font-size: 0.62rem; color: var(--cyan);
+        text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .mv.hot { color: var(--crimson); }
+
+    /* --- Komunikat "rozpoznano plik" (gaśnie po chwili, plakietka zostaje) --- */
+    .recognized {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        text-align: center; pointer-events: none;
+        border: 1px solid var(--border2); background: rgba(10,12,8,0.9); padding: 22px 34px;
+        transition: opacity .45s ease;
+    }
+    .recognized.fading { opacity: 0; }
+    .rec-kicker {
+        font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.18em;
+        text-transform: uppercase; color: var(--dim); margin-bottom: 10px;
+    }
+    .rec-main { font-family: var(--display); font-weight: 700; font-size: 1.2rem; color: var(--cream); }
+    .rec-sub { font-family: var(--mono); font-size: 0.68rem; color: var(--dim); margin-top: 7px; }
+
+    /* --- Stan pusty / strefa upuszczania --- */
+    .dropzone {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 8px; text-align: center; padding: 24px; pointer-events: none;
+    }
+    .dz-title { font-family: var(--display); font-weight: 600; font-size: 1.05rem; color: var(--cream); }
+    .dropzone > * { text-shadow: 0 0 14px rgba(10,12,8,0.95), 0 0 5px rgba(10,12,8,0.95); }
+    .dz-sub { font-family: var(--mono); font-size: 0.72rem; color: var(--dim); }
+    .dz-sub b { color: var(--cream); font-weight: 500; }
+    .dz-formats {
+        font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em;
+        color: var(--dim); opacity: 0.7; margin-top: 10px;
+    }
+    .screen.drag-over { outline: 2px dashed var(--cyan); outline-offset: -10px; }
+    .screen.drag-over .dz-title { color: var(--cyan); }
+
+    /* --- Stały pasek na dole ekranu: legenda + sterowanie (nigdy nie gaśnie) --- */
+    .screen-bottom {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        display: flex; align-items: flex-end; justify-content: space-between;
+        gap: 16px; padding: 12px 20px; pointer-events: none; flex-wrap: wrap;
+    }
+    .ctrl-hint {
+        font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.05em;
+        color: var(--dim); line-height: 1.7; text-align: right;
+        border: 1px solid var(--border); background: rgba(18,21,15,0.72); padding: 6px 11px;
     }
 
     /* ===== KOLUMNA KONTROLEK (prawa strona) ===== */
@@ -162,12 +232,78 @@
         display: flex;
         flex-direction: column;
     }
-    .panel { padding: 22px 24px; border-bottom: 1px solid var(--border); }
+    .panel { padding: 17px 22px; border-bottom: 1px solid var(--border); }
     .panel:last-child { border-bottom: none; }
     .panel-title {
-        font-family: var(--mono); font-size: 0.64rem;
+        font-family: var(--mono); font-size: 0.64rem; font-weight: 500;
         letter-spacing: 0.16em; text-transform: uppercase;
-        color: var(--dim); margin-bottom: 16px;
+        color: var(--dim); margin: 0;
+    }
+    .panel-head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; margin-bottom: 12px;
+    }
+    .head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .ghost-btn {
+        background: none; border: none; padding: 6px 4px; cursor: pointer;
+        font-family: var(--mono); font-weight: 500; font-size: 0.66rem;
+        letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+        transition: color .2s ease;
+    }
+    .ghost-btn:hover:not(:disabled) { color: var(--cyan); }
+    .ghost-btn:disabled { cursor: not-allowed; }
+
+    /* Pomoc pod znakiem zapytania — rozwijana w miejscu, przy panelu którego dotyczy */
+    .help-btn {
+        flex-shrink: 0;
+        width: 26px; height: 26px; border-radius: 0; cursor: pointer;
+        background: transparent; color: var(--dim); border: 1px solid var(--border2);
+        font-family: var(--mono); font-size: 0.78rem; line-height: 1;
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: color .2s ease, border-color .2s ease;
+    }
+    .help-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    .help-btn[aria-expanded="true"] { color: var(--cyan); border-color: var(--cyan); }
+    .help {
+        font-family: var(--mono); font-size: 0.68rem; line-height: 1.65;
+        color: var(--dim); background: var(--bg2);
+        border: 1px solid var(--border); border-left: 2px solid var(--cyan);
+        padding: 12px 14px; margin-bottom: 16px;
+    }
+    .help b { color: var(--cream); font-weight: 500; }
+
+    /* Zwijana sekcja szczegółów */
+    .disclosure {
+        width: 100%; display: flex; align-items: center; gap: 12px;
+        background: transparent; border: none; border-radius: 0; cursor: pointer;
+        padding: 0; min-height: 44px; text-align: left;
+    }
+    .disclosure .panel-title { flex-shrink: 0; }
+    .disc-sum {
+        flex: 1; min-width: 0; text-align: right;
+        font-family: var(--mono); font-size: 0.68rem; color: var(--cream);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .disc-caret {
+        flex-shrink: 0; width: 22px; text-align: center;
+        font-family: var(--mono); font-size: 0.9rem; color: var(--dim);
+    }
+    .disclosure:hover .disc-caret, .disclosure:hover .panel-title { color: var(--cyan); }
+    #detailsBody { margin-top: 14px; }
+    .override {
+        font-family: var(--mono); font-size: 0.68rem; color: var(--dim);
+        line-height: 1.6; margin-top: 12px;
+    }
+    .btn-link {
+        background: none; border: none; padding: 0; cursor: pointer;
+        font-family: var(--mono); font-size: 0.68rem; color: var(--cyan);
+        text-decoration: underline; text-underline-offset: 3px;
+    }
+
+    /* Ukryty wizualnie natywny input pliku — obsługujemy go własnym przyciskiem */
+    .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
 
     /* Przyciski (manifest §05) — ostre krawędzie, min-h 44px, padding 14/24 */
@@ -191,9 +327,6 @@
     #playBtn { }
     #playBtn.playing { background: var(--cyan); color: var(--black); border: none; }
 
-    .file-row {
-        display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;
-    }
     input[type="file"] {
         flex: 1; min-width: 0;
         background: var(--bg2); border: 1px solid var(--border2); color: var(--cream);
@@ -214,9 +347,9 @@
 
     /* Status */
     .status {
-        font-family: var(--mono); font-size: 0.72rem; line-height: 1.6;
+        font-family: var(--mono); font-size: 0.7rem; line-height: 1.55;
         color: var(--dim); background: var(--bg2);
-        border: 1px solid var(--border); padding: 11px 13px; word-break: break-word;
+        border: 1px solid var(--border); padding: 9px 12px; margin-top: 12px; word-break: break-word;
     }
     .status.loading { color: var(--cyan); }
     .status.success { color: var(--cyan); border-color: rgba(0,229,204,0.3); background: rgba(0,229,204,0.06); }
@@ -232,14 +365,47 @@
     .info-item .val { color: var(--cream); text-align: right; }
     .info-item .val.data { color: var(--cyan); }
     .channel-warn { color: var(--amber); font-family: var(--mono); font-size: 0.68rem; margin-top: 8px; line-height: 1.5; }
+    .info-item .val.mode-foa { color: var(--amber); }
+    .info-item .val.mode-bin { color: var(--cyan); }
+
+    /* Panel zablokowany (rotacja niedostępna dla plików binauralnych) — notka zostaje czytelna */
+    .panel.is-locked > *:not(.lock-note):not(.panel-title) { opacity: 0.35; pointer-events: none; }
+    .lock-note {
+        font-family: var(--mono); font-size: 0.68rem; line-height: 1.55;
+        color: var(--amber); border: 1px solid var(--amber-dim);
+        background: rgba(255,171,0,0.06); padding: 10px 12px; margin-bottom: 16px;
+    }
 
     /* Progress / transport */
     .progress-bar {
         width: 100%; height: 6px; background: var(--border2);
-        cursor: pointer; position: relative; margin: 14px 0 8px;
+        cursor: pointer; position: relative; margin: 4px 0 8px;
     }
     .progress-bar:hover { height: 8px; }
+    .progress-bar:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
     .progress-fill { height: 100%; background: var(--cyan); width: 0%; transition: width .1s linear; }
+
+    /* Transport [■] [−15] [▶] [+15] — ten sam układ co w Przestrzeni Relaksu.
+       Przycisk odtwarzania jest JEDYNYM primary w widoku (manifest §05). */
+    .transport {
+        display: grid; grid-template-columns: 1fr 1fr 1.7fr 1fr; gap: 10px;
+        margin-top: 14px;
+    }
+    .tbtn {
+        min-height: 52px; border-radius: 0; cursor: pointer;
+        background: transparent; color: var(--cream); border: 1px solid var(--border2);
+        font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.04em;
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: color .2s ease, border-color .2s ease, background .2s ease, opacity .2s ease;
+    }
+    .tbtn:hover:not(:disabled) { color: var(--cyan); border-color: var(--cyan); }
+    .tbtn-main {
+        background: var(--cyan); color: var(--black); border: none;
+        font-size: 1.15rem; line-height: 1;
+    }
+    .tbtn-main:hover:not(:disabled) { background: var(--cyan); color: var(--black); opacity: 0.85; }
+    .tbtn-main:active:not(:disabled) { opacity: 0.7; }
+    .tbtn:disabled { background: var(--border2); color: var(--dim); border: none; cursor: not-allowed; }
     .time-row {
         display: flex; justify-content: space-between;
         font-family: var(--mono); font-size: 0.72rem; color: var(--dim);
@@ -247,11 +413,11 @@
     .time-row .data { color: var(--cyan); }
 
     /* Suwaki (manifest §06) — wartość liczbowa zawsze widoczna, cyan mono, po prawej */
-    .slider-item { margin-bottom: 16px; }
+    .slider-item { margin-bottom: 11px; }
     .slider-item:last-child { margin-bottom: 0; }
     .slider-label {
         display: flex; justify-content: space-between; align-items: baseline;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
     .slider-label .name {
         font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.04em;
@@ -261,7 +427,7 @@
         font-family: var(--mono); font-size: 0.82rem; color: var(--cyan);
         min-width: 64px; text-align: right; font-variant-numeric: tabular-nums;
     }
-    .slider-row { display: flex; align-items: center; height: 32px; }
+    .slider-row { display: flex; align-items: center; height: 26px; }
     input[type="range"] {
         width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
         background: var(--border2); border-radius: 2px; outline: none; cursor: pointer;
@@ -280,6 +446,7 @@
 
     /* Segmentowany wybór trybu rotacji */
     .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    #rotationControlSection .seg { margin-bottom: 14px !important; }
     .mode-btn {
         font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.04em;
         min-height: 44px; padding: 10px 6px; border-radius: 0; cursor: pointer;
@@ -287,21 +454,22 @@
         transition: color .2s ease, border-color .2s ease, background .2s ease;
     }
     .mode-btn:hover:not(.active) { color: var(--cyan); border-color: var(--cyan); }
-    .mode-btn.active { background: var(--cyan); color: var(--black); border-color: var(--cyan); font-weight: 500; }
+    /* Wybrany segment: obrys + delikatne wypełnienie, NIE pełny cyan.
+       Pełny cyan zostaje zarezerwowany dla jedynego primary w widoku, czyli przycisku
+       odtwarzania (manifest §05) — inaczej dwa jaskrawe bloki walczą o uwagę. */
+    .mode-btn.active {
+        background: rgba(0,229,204,0.12); color: var(--cyan);
+        border-color: var(--cyan); font-weight: 500;
+    }
+    .mode-btn:disabled { cursor: not-allowed; }
+    input[type="range"]:disabled { cursor: not-allowed; }
 
     .orient-display {
         font-family: var(--mono); font-size: 0.72rem; color: var(--amber);
         background: var(--bg2); border: 1px solid var(--amber-dim); padding: 11px 13px;
-        text-align: center; letter-spacing: 0.02em;
+        text-align: center; letter-spacing: 0.02em; margin-top: 16px;
     }
 
-    /* Baner słuchawek — amber ostrzeżenie (manifest §12) */
-    .headphones {
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-        font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase;
-        color: var(--amber); border: 1px solid var(--amber-dim); background: rgba(255,171,0,0.06);
-        padding: 10px 14px;
-    }
 
     /* Stopka */
     .tool-footer {
@@ -316,7 +484,8 @@
     .tool-footer a:hover { color: var(--cream); }
 
     .hidden { display: none !important; }
-    .is-disabled { opacity: 0.45; pointer-events: none; }
+    /* Panel wyłączony — nagłówek i pomoc zostają czytelne, reszta przygaszona */
+    .panel.is-disabled > *:not(.panel-head):not(.help) { opacity: 0.4; pointer-events: none; }
 
     /* Fokus klawiatury — zawsze widoczny cyan (manifest §12) */
     a:focus-visible, button:focus-visible, input:focus-visible {
@@ -330,10 +499,24 @@
 
     /* ---------- Responsywność: stack na wąskim ekranie ---------- */
     @media (max-width: 900px) {
-        body { overflow: auto; }
-        .app { grid-template-columns: 1fr; grid-auto-rows: min-content; }
-        .screen { height: 46vh; min-height: 320px; }
+        /* body ma height:100vh + flex, więc .app było przycięte do wysokości okna,
+           a treść kontrolek malowała się NA stopce. Na wąskim ekranie strona rośnie normalnie. */
+        body { overflow: auto; height: auto; }
+        .app { grid-template-columns: 1fr; grid-auto-rows: min-content; flex: none; }
+        .screen { height: 52vh; min-height: 380px; }
         .controls { overflow-y: visible; }
+
+        /* Pasek słuchawek i plakietka pliku układają się w kolumnę,
+           więc HUD musi zacząć się niżej — inaczej nachodzą na siebie. */
+        .screen-top { flex-direction: column; align-items: flex-start; gap: 8px; }
+        .hud-tl, .hud-tr { top: 104px; }
+        .file-badge { max-width: calc(100vw - 48px); }
+    }
+    @media (max-width: 560px) {
+        .hud-kicker { display: none; }              /* plakietka mówi to samo, a miejsca jest mało */
+        .hud-tl, .hud-tr { top: 100px; }
+        .ctrl-hint, .hud-legend { font-size: 0.56rem; }
+        .mrow { grid-template-columns: 12px 58px 46px; gap: 6px; }   /* miernik nie może wejść pod chip trybu */
     }
     @media (max-width: 560px) {
         .tool-header { padding: 12px 16px; }
@@ -364,12 +547,31 @@
         <div class="screen" id="screen">
             <canvas id="canvas3d"></canvas>
 
+            <!-- Górny pasek ekranu: ostrzeżenie o słuchawkach (manifest §12) + plakietka pliku -->
+            <div class="screen-top">
+                <span class="hp-strip">&#9835;&nbsp; Wymagane słuchawki</span>
+                <span class="file-badge hidden" id="fileBadge">&mdash;</span>
+            </div>
+
+            <!-- Odczyt rotacji + miernik poziomu -->
             <div class="hud hud-tl">
-                <div class="hud-kicker">Pole dźwiękowe FOA</div>
-                <div class="hud-read">
+                <div class="hud-kicker" id="hudKicker">Pole dźwiękowe FOA</div>
+                <div class="hud-read" id="hudRead">
                     <span class="k">Yaw</span><span class="v" id="hudYaw">+0&deg;</span>
                     <span class="k">Pitch</span><span class="v" id="hudPitch">+0&deg;</span>
                     <span class="k">Roll</span><span class="v" id="hudRoll">+0&deg;</span>
+                </div>
+                <div class="hud-meter hidden" id="hudMeter">
+                    <div class="mrow">
+                        <span class="mk" id="mk1">W</span>
+                        <span class="mbar"><i id="mb1"></i></span>
+                        <span class="mv" id="mv1">-inf</span>
+                    </div>
+                    <div class="mrow hidden" id="mrow2">
+                        <span class="mk">R</span>
+                        <span class="mbar"><i id="mb2"></i></span>
+                        <span class="mv" id="mv2">-inf</span>
+                    </div>
                 </div>
             </div>
 
@@ -377,48 +579,76 @@
                 <span class="hud-mode" id="hudMode">Tryb: Ręczna</span>
             </div>
 
-            <div class="hud hud-bl">
-                <div class="hud-legend">
-                    <b>F</b> przód &middot; <b>B</b> tył &middot; <b>L</b> lewo &middot; <b>R</b> prawo &middot; <b>U</b> góra &middot; <b>D</b> dół
-                </div>
+            <!-- Komunikat po wczytaniu: co to za plik -->
+            <div class="recognized hidden" id="recognized">
+                <div class="rec-kicker">Rozpoznano plik</div>
+                <div class="rec-main" id="recMain">&mdash;</div>
+                <div class="rec-sub" id="recSub">&mdash;</div>
             </div>
 
-            <div class="hud drag-hint" id="dragHint">Przeciągnij, aby obrócić pole &middot; Shift = przechył &middot; 2&times; klik = reset</div>
+            <!-- Stan pusty / strefa upuszczania -->
+            <div class="dropzone" id="dropzone">
+                <div class="dz-title">Upuść tutaj plik audio</div>
+                <div class="dz-sub">albo użyj przycisku <b>Wybierz plik</b> po prawej</div>
+                <div class="dz-formats">WAV &middot; MP3 &middot; Opus &middot; OGG &middot; FLAC &middot; M4A &middot; WebM</div>
+            </div>
+
+            <!-- Stały pasek: legenda + sterowanie. Nic tu nie gaśnie. -->
+            <div class="screen-bottom">
+                <div class="hud-legend" id="hudLegend">
+                    <b>F</b> przód &middot; <b>B</b> tył &middot; <b>L</b> lewo &middot; <b>R</b> prawo &middot; <b>U</b> góra &middot; <b>D</b> dół
+                </div>
+                <div class="ctrl-hint" id="ctrlHint">
+                    Przeciągnij = obrót &middot; Shift+przeciągnij = przechył &middot; Dwuklik = wyzeruj
+                </div>
+            </div>
         </div>
 
         <!-- ==== KONTROLKI (prawa strona) ==== -->
         <div class="controls">
 
-            <!-- Źródło -->
+            <!-- 1. ŹRÓDŁO -->
             <div class="panel">
-                <div class="panel-title">Źródło dźwięku</div>
-                <button class="btn btn-secondary" id="loadDemoBtn" onclick="loadDemoFile()">
-                    &#9654;&nbsp; Demo: Pociąg (FOA)
-                </button>
-                <div class="hint">4-kanałowy plik Opus (AmbiX B-format) &middot; ~6.4 MB</div>
-                <div class="hint" style="color: var(--amber);" id="demoWarning"></div>
-
-                <div class="file-row">
-                    <input type="file" id="fileInput" accept=".wav,.mp3,.ogg,.opus,.flac,.m4a" />
-                    <button class="btn btn-secondary" style="width:auto;padding:11px 18px;" onclick="loadFileFromDisk()">Załaduj</button>
+                <div class="panel-head">
+                    <h2 class="panel-title">Źródło dźwięku</h2>
+                    <button class="help-btn" id="helpBtnSource" aria-expanded="false" aria-controls="helpSource"
+                            aria-label="Pomoc: źródło dźwięku" onclick="toggleHelp(this, 'helpSource')">?</button>
                 </div>
-                <div class="hint">Wspierane: WAV, MP3, OGG, Opus, FLAC, M4A &middot; AmbiX FOA (4 kanały)</div>
-            </div>
+                <div class="help hidden" id="helpSource">
+                    Odtwarzacz sam rozpoznaje plik z jego nagłówka. Pliki <b>4-kanałowe (AmbiX FOA)</b> dostają
+                    dekoder ambisoniczny z obracaniem pola. Pliki <b>2-kanałowe (binauralne)</b> grają bez zmian,
+                    bo kierunki są już w nich zapisane. Obsługiwane: WAV, MP3, OGG, Opus, FLAC, M4A, AAC, WebM.
+                    Plik możesz też przeciągnąć myszą na wizualizację po lewej. Nic nie wysyłamy na serwer &mdash;
+                    wszystko dzieje się w Twojej przeglądarce.
+                </div>
 
-            <!-- Status -->
-            <div class="panel">
-                <div class="status" id="status">Gotów. Wczytaj demo lub własny plik AmbiX.</div>
-            </div>
-
-            <!-- Transport -->
-            <div class="panel is-disabled" id="transportPanel">
-                <div class="panel-title">Odtwarzanie</div>
                 <div class="btn-row">
-                    <button class="btn btn-secondary" id="playBtn" onclick="togglePlayPause()">&#9654; Odtwórz</button>
-                    <button class="btn btn-secondary" id="stopBtn" onclick="stopAudio()">&#9632; Stop</button>
+                    <button class="btn btn-secondary" id="pickFileBtn" onclick="openFilePicker()">Wybierz plik</button>
+                    <button class="btn btn-secondary" id="loadDemoBtn" onclick="loadDemoFile()">Demo: Pociąg</button>
+                </div>
+                <input type="file" id="fileInput" class="sr-only"
+                       accept=".wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac,.mp4,.webm,.weba,audio/*"
+                       onchange="loadPickedFile()" />
+
+                <div class="status" id="status" role="status" aria-live="polite">Gotów. Wybierz plik albo włącz demo.</div>
+            </div>
+
+            <!-- 2. ODTWARZANIE -->
+            <div class="panel is-disabled" id="transportPanel">
+                <div class="panel-head">
+                    <h2 class="panel-title">Odtwarzanie</h2>
+                    <button class="help-btn" aria-expanded="false" aria-controls="helpTransport"
+                            aria-label="Pomoc: odtwarzanie" onclick="toggleHelp(this, 'helpTransport')">?</button>
+                </div>
+                <div class="help hidden" id="helpTransport">
+                    <b>Spacja</b> odtwarza i pauzuje. <b>Strzałki lewo/prawo</b> przewijają o 5 sekund,
+                    <b>PageUp/PageDown</b> o 30 sekund, <b>Home</b> wraca na początek.
+                    Pasek postępu można też złapać klawiszem Tab i przewijać strzałkami.
                 </div>
 
-                <div class="progress-bar" id="progressBar" onclick="seekAudio(event)">
+                <div class="progress-bar" id="progressBar" role="slider" tabindex="0"
+                     aria-label="Pozycja odtwarzania" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                     aria-valuetext="0:00 z 0:00" onclick="seekAudio(event)" onkeydown="onProgressKey(event)">
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
                 <div class="time-row">
@@ -426,26 +656,51 @@
                     <span class="data" id="timeDisplay">0:00 / 0:00</span>
                 </div>
 
-                <div class="slider-item" style="margin-top:18px;">
+                <div class="transport">
+                    <button class="tbtn" id="stopBtn" onclick="stopAudio()" title="Zatrzymaj" aria-label="Zatrzymaj">&#9632;</button>
+                    <button class="tbtn" onclick="seekBy(-15)" title="Cofnij o 15 sekund" aria-label="Cofnij o 15 sekund">&minus;15</button>
+                    <button class="tbtn tbtn-main" id="playBtn" onclick="togglePlayPause()" title="Odtwórz" aria-label="Odtwórz">&#9654;</button>
+                    <button class="tbtn" onclick="seekBy(15)" title="Do przodu o 15 sekund" aria-label="Do przodu o 15 sekund">+15</button>
+                </div>
+
+                <div class="slider-item" style="margin-top:14px;">
                     <div class="slider-label">
                         <span class="name">Głośność</span>
                         <span class="value" id="volumeValue">100%</span>
                     </div>
                     <div class="slider-row">
-                        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" oninput="setVolume(this.value)">
+                        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1"
+                               aria-label="Głośność" oninput="setVolume(this.value)">
                     </div>
                 </div>
             </div>
 
-            <!-- Rotacja pola -->
+            <!-- 3. ROTACJA POLA -->
             <div class="panel" id="rotationControlSection">
-                <div class="panel-title">Rotacja pola (FOA)</div>
+                <div class="panel-head">
+                    <h2 class="panel-title">Rotacja pola</h2>
+                    <div class="head-actions">
+                        <button class="ghost-btn" id="resetRotBtn" onclick="resetRotation()">Wyzeruj</button>
+                        <button class="help-btn" aria-expanded="false" aria-controls="helpRotation"
+                                aria-label="Pomoc: rotacja pola" onclick="toggleHelp(this, 'helpRotation')">?</button>
+                    </div>
+                </div>
+                <div class="help hidden" id="helpRotation">
+                    Obracasz całą scenę wokół nieruchomej głowy &mdash; tak jakbyś rozglądał się w nagraniu.
+                    <b>Yaw</b> to obrót w lewo i prawo, <b>Pitch</b> góra i dół, <b>Roll</b> przechylenie głowy.
+                    <b>Żyroskop</b> steruje polem z czujnika telefonu, <b>Auto</b> obraca scenę wolno w kółko.
+                    Działa tylko dla plików 4-kanałowych.
+                </div>
+                <div class="lock-note hidden" id="rotLockNote">
+                    Ten plik jest binauralny (2 kan.) &mdash; kierunki są już w nim zapisane i nie da się nimi obracać.
+                    Rotacja działa dla nagrań 4-kanałowych AmbiX.
+                </div>
+
                 <div class="seg" style="margin-bottom:18px;">
                     <button class="mode-btn active" onclick="setRotationMode(event, 'manual')">Ręczna</button>
                     <button class="mode-btn" onclick="setRotationMode(event, 'gyroscope')">Żyroskop</button>
                     <button class="mode-btn" onclick="setRotationMode(event, 'auto')">Auto</button>
                 </div>
-                <div class="hint" style="margin-top:0;margin-bottom:16px;">Wskazówka: możesz też chwycić i obrócić sferę myszą na ekranie (Shift = przechył).</div>
 
                 <div class="slider-item">
                     <div class="slider-label">
@@ -453,7 +708,8 @@
                         <span class="value" id="rotYValue">0&deg;</span>
                     </div>
                     <div class="slider-row">
-                        <input type="range" id="rotationY" min="-180" max="180" value="0" step="1" oninput="updateRotationFromSliders()" />
+                        <input type="range" id="rotationY" min="-180" max="180" value="0" step="1"
+                               aria-label="Yaw, lewo i prawo" oninput="updateRotationFromSliders()" />
                     </div>
                 </div>
 
@@ -463,7 +719,8 @@
                         <span class="value" id="rotXValue">0&deg;</span>
                     </div>
                     <div class="slider-row">
-                        <input type="range" id="rotationX" min="-90" max="90" value="0" step="1" oninput="updateRotationFromSliders()" />
+                        <input type="range" id="rotationX" min="-90" max="90" value="0" step="1"
+                               aria-label="Pitch, góra i dół" oninput="updateRotationFromSliders()" />
                     </div>
                 </div>
 
@@ -473,30 +730,34 @@
                         <span class="value" id="rotZValue">0&deg;</span>
                     </div>
                     <div class="slider-row">
-                        <input type="range" id="rotationZ" min="-180" max="180" value="0" step="1" oninput="updateRotationFromSliders()" />
+                        <input type="range" id="rotationZ" min="-180" max="180" value="0" step="1"
+                               aria-label="Roll, przechylenie głowy" oninput="updateRotationFromSliders()" />
                     </div>
                 </div>
+
+                <div class="orient-display hidden" id="orientationDisplay">Alpha: 0&deg; &nbsp;|&nbsp; Beta: 0&deg; &nbsp;|&nbsp; Gamma: 0&deg;</div>
             </div>
 
-            <!-- Orientacja urządzenia -->
-            <div class="panel hidden" id="orientationSection">
-                <div class="panel-title">Orientacja urządzenia</div>
-                <div class="orient-display" id="orientationDisplay">Alpha: 0&deg; &nbsp;|&nbsp; Beta: 0&deg; &nbsp;|&nbsp; Gamma: 0&deg;</div>
-                <div class="hint">Obracaj urządzenie, aby zmieniać kierunek dźwięku. Wymaga żyroskopu i trybu &bdquo;Żyroskop&rdquo;.</div>
-            </div>
-
-            <!-- Sygnał -->
+            <!-- 4. SZCZEGÓŁY — zwinięte, dla ciekawych i na awarie -->
             <div class="panel">
-                <div class="panel-title">Sygnał</div>
-                <div class="info-item"><span>Plik</span><span class="val" id="fileName">&mdash;</span></div>
-                <div class="info-item"><span>Kanały</span><span class="val data" id="channelCount">&mdash;</span></div>
-                <div class="info-item"><span>Sample rate</span><span class="val data" id="sampleRate">&mdash;</span></div>
-                <div class="channel-warn hidden" id="channelWarn"></div>
-            </div>
-
-            <!-- Baner słuchawek -->
-            <div class="panel">
-                <div class="headphones">&#9835; Wymagane słuchawki &middot; dźwięk binauralny (przestrzenny)</div>
+                <button class="disclosure" id="detailsToggle" aria-expanded="false" aria-controls="detailsBody"
+                        onclick="toggleDetails()">
+                    <span class="panel-title">Szczegóły sygnału</span>
+                    <span class="disc-sum" id="detailsSummary">brak pliku</span>
+                    <span class="disc-caret" id="detailsCaret">+</span>
+                </button>
+                <div class="hidden" id="detailsBody">
+                    <div class="info-item"><span>Plik</span><span class="val" id="fileName">&mdash;</span></div>
+                    <div class="info-item"><span>Tryb</span><span class="val" id="modeValue">&mdash;</span></div>
+                    <div class="info-item"><span>Kanały</span><span class="val data" id="channelCount">&mdash;</span></div>
+                    <div class="info-item"><span>Sample rate</span><span class="val data" id="sampleRate">&mdash;</span></div>
+                    <div class="info-item"><span>Odczyt</span><span class="val" id="engineValue">&mdash;</span></div>
+                    <div class="channel-warn hidden" id="channelWarn"></div>
+                    <div class="override hidden" id="overrideRow">
+                        Gdyby rozpoznanie się pomyliło:
+                        <button class="btn-link" id="overrideBtn" onclick="overrideMode()">wymuś tryb binauralny</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -506,6 +767,9 @@
         <span>Spatial Audio Lab &middot; Ambisonic Web Player</span>
         <a href="/">&larr; Wróć do strony głównej</a>
     </footer>
+
+    <!-- Element strumieniowy dla plików binauralnych (2 kan.) — bez decodeAudioData -->
+    <audio id="mediaEl" preload="metadata" crossorigin="anonymous" style="display:none"></audio>
 
     <!-- Three.js — wyłącznie matematyka rotacji dla Omnitone -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -553,12 +817,32 @@
         // ===========================================
         const DEMO_FILE_PATH = 'pociag.opus';
 
+        const BIG_FILE_MB = 150;   // powyżej tego progu ostrzegamy przed dekodowaniem AmbiX do pamięci
+
         const state = {
             audioContext: null, source: null, buffer: null, gainNode: null, foaRenderer: null,
             isPlaying: false, isPaused: false, isOmnitoneReady: false,
             startTime: 0, pauseTime: 0, currentFileName: '',
             rotationMode: 'manual', autoSpinAngle: 0,
-            rotationX: 0, rotationY: 0, rotationZ: 0
+            rotationX: 0, rotationY: 0, rotationZ: 0,
+
+            // --- CO odtwarzamy ---
+            // 'foa'      = 4-kanałowy AmbiX -> dekoder Omnitone + rotacja pola
+            // 'binaural' = 2-kanałowy sygnał gotowy na słuchawki -> prosto na wyjście
+            mode: 'foa',
+            // --- JAK odtwarzamy ---
+            // 'buffer' = AudioBufferSourceNode (cały plik w pamięci; jedyna droga dla FOA)
+            // 'media'  = <audio> + createMediaElementSource (strumień; tylko binaural)
+            engine: 'buffer',
+            // wybór użytkownika w panelu Źródło: 'auto' | 'foa' | 'binaural'
+            sourceMode: 'auto',
+
+            mediaEl: null, mediaSource: null, binGain: null,
+            splitter: null, analyserL: null, analyserR: null, meterBuf: null,
+            foaSplitter: null, analyserW: null,
+            meterL: 0, meterR: 0, meterW: 0,
+            objectUrl: null, volume: 1,
+            hasFile: false, lastFile: null, lastWasDemo: false, recTimer: null
         };
 
         // ===========================================
@@ -570,21 +854,41 @@
                 updateAudioContextStatus();
                 return;
             }
+            // Kontekst i szyna binauralna powstają ZAWSZE — nie zależą od Omnitone.
+            // Dzięki temu pliki 2-kanałowe grają nawet gdy CDN z Omnitone jest niedostępny.
+            state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            state.gainNode = state.audioContext.createGain();
+            state.gainNode.gain.value = state.volume;
+            state.binGain = state.audioContext.createGain();
+            state.binGain.gain.value = state.volume;
+            state.binGain.connect(state.audioContext.destination);
+
+            // Miernik L/R dla trybu binauralnego (odczep, nie wpływa na dźwięk)
+            state.splitter = state.audioContext.createChannelSplitter(2);
+            state.analyserL = state.audioContext.createAnalyser();
+            state.analyserR = state.audioContext.createAnalyser();
+            state.analyserL.fftSize = 1024;
+            state.analyserR.fftSize = 1024;
+            state.meterBuf = new Float32Array(state.analyserL.fftSize);
+            state.binGain.connect(state.splitter);
+            state.splitter.connect(state.analyserL, 0);
+            state.splitter.connect(state.analyserR, 1);
+
+            // Miernik kanału W (ciśnienie) dla AmbiX — odczep sprzed dekodera Omnitone
+            state.foaSplitter = state.audioContext.createChannelSplitter(4);
+            state.analyserW = state.audioContext.createAnalyser();
+            state.analyserW.fftSize = 1024;
+            state.gainNode.connect(state.foaSplitter);
+            state.foaSplitter.connect(state.analyserW, 0);
+
+            updateAudioContextStatus();
+
             try {
                 updateStatus('Ładowanie biblioteki Omnitone...', 'loading');
                 await omnitonePromise;
-            } catch (error) {
-                updateStatus('Błąd: ' + error.message, 'error');
-                throw error;
-            }
-            if (typeof Omnitone === 'undefined') {
-                throw new Error('Biblioteka Omnitone nie została załadowana. Sprawdź połączenie i odśwież stronę.');
-            }
-            try {
-                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                state.gainNode = state.audioContext.createGain();
-                state.gainNode.gain.value = 1.0;
-
+                if (typeof Omnitone === 'undefined') {
+                    throw new Error('Biblioteka Omnitone nie została załadowana.');
+                }
                 updateStatus('Inicjalizacja Omnitone...', 'loading');
                 state.foaRenderer = Omnitone.createFOARenderer(state.audioContext, {});
                 await state.foaRenderer.initialize();
@@ -594,26 +898,176 @@
 
                 state.isOmnitoneReady = true;
                 applyRotation();
-                updateAudioContextStatus();
                 updateStatus('Omnitone gotowy. Wczytaj plik audio.', 'success');
             } catch (error) {
                 console.error('Error initializing Omnitone:', error);
-                updateStatus('Błąd inicjalizacji Omnitone: ' + error.message, 'error');
-                throw error;
+                state.isOmnitoneReady = false;
+                updateStatus('Dekoder FOA niedostępny (' + error.message + '). Pliki 2-kanałowe binauralne nadal zagrają.', 'error');
             }
+        }
+
+        // ===========================================
+        // ROZPOZNANIE FORMATU Z NAGŁÓWKA (bez dekodowania całego pliku)
+        // ===========================================
+        // Zwraca { container, channels, sampleRate, maxChannels }.
+        // channels === null oznacza: nie da się odczytać z nagłówka, trzeba zdekodować.
+        function sniffAudioHeader(arrayBuffer) {
+            const b = new Uint8Array(arrayBuffer);
+            const dv = new DataView(arrayBuffer);
+            const tag = (o, s) => {
+                if (o + s.length > b.length) return false;
+                for (let i = 0; i < s.length; i++) { if (b[o + i] !== s.charCodeAt(i)) return false; }
+                return true;
+            };
+
+            // --- RIFF/WAVE oraz RF64 ---
+            if ((tag(0, 'RIFF') || tag(0, 'RF64')) && tag(8, 'WAVE')) {
+                let p = 12;
+                while (p + 16 <= b.length) {
+                    const id = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+                    const size = dv.getUint32(p + 4, true);
+                    if (id === 'fmt ') {
+                        return { container: 'WAV', channels: dv.getUint16(p + 10, true), sampleRate: dv.getUint32(p + 12, true) };
+                    }
+                    if (size === 0 || size > b.length) break;
+                    p += 8 + size + (size % 2);
+                }
+                return { container: 'WAV', channels: null, sampleRate: null };
+            }
+
+            // --- Ogg: Opus / Vorbis ---
+            if (tag(0, 'OggS')) {
+                const payload = 27 + b[26];
+                if (tag(payload, 'OpusHead')) {
+                    return { container: 'Opus', channels: b[payload + 9], sampleRate: dv.getUint32(payload + 12, true) };
+                }
+                if (b[payload] === 0x01 && tag(payload + 1, 'vorbis')) {
+                    return { container: 'Vorbis', channels: b[payload + 11], sampleRate: dv.getUint32(payload + 12, true) };
+                }
+                return { container: 'Ogg', channels: null, sampleRate: null };
+            }
+
+            // --- FLAC natywny: STREAMINFO zaraz po 4-bajtowym nagłówku bloku ---
+            if (tag(0, 'fLaC') && b.length > 26) {
+                const s = 8;
+                const rate = (b[s + 10] << 12) | (b[s + 11] << 4) | (b[s + 12] >> 4);
+                const ch = ((b[s + 12] >> 1) & 0x07) + 1;
+                return { container: 'FLAC', channels: ch, sampleRate: rate };
+            }
+
+            // --- MP3: standard nie przewiduje więcej niż 2 kanały ---
+            if (tag(0, 'ID3') || (b[0] === 0xFF && (b[1] & 0xE0) === 0xE0)) {
+                return { container: 'MP3', channels: null, maxChannels: 2, sampleRate: null };
+            }
+
+            // --- Matroska / WebM ---
+            if (b[0] === 0x1A && b[1] === 0x45 && b[2] === 0xDF && b[3] === 0xA3) {
+                const found = ebmlFindAudio(b);
+                return { container: 'WebM', channels: found.channels, sampleRate: found.sampleRate };
+            }
+
+            // --- MP4 / M4A: atom ftyp; parsowanie moov pominięte, decyduje dekoder ---
+            if (tag(4, 'ftyp')) {
+                return { container: 'MP4', channels: null, sampleRate: null };
+            }
+
+            return { container: null, channels: null, sampleRate: null };
+        }
+
+        // Minimalny spacer po EBML: Segment > Tracks > TrackEntry > Audio > Channels/SamplingFrequency
+        function ebmlFindAudio(b) {
+            const out = { channels: null, sampleRate: null };
+            const MASTERS = { 0x18538067: 1, 0x1654AE6B: 1, 0xAE: 1, 0xE1: 1 };
+
+            function readVint(p, keepMarker) {
+                if (p >= b.length) return null;
+                const first = b[p];
+                if (first === 0) return null;
+                let len = 1, mask = 0x80;
+                while (!(first & mask) && len < 8) { mask >>= 1; len++; }
+                if (p + len > b.length) return null;
+                let v = keepMarker ? first : (first & (mask - 1));
+                for (let i = 1; i < len; i++) { v = v * 256 + b[p + i]; }
+                return { value: v, length: len };
+            }
+
+            function walk(start, end, depth) {
+                let p = start;
+                while (p < end && depth < 6) {
+                    const id = readVint(p, true);
+                    if (!id) return;
+                    const size = readVint(p + id.length, false);
+                    if (!size) return;
+                    const dataStart = p + id.length + size.length;
+                    let dataEnd = dataStart + size.value;
+                    if (!isFinite(dataEnd) || dataEnd > end) { dataEnd = end; }
+
+                    if (MASTERS[id.value]) {
+                        walk(dataStart, dataEnd, depth + 1);
+                    } else if (id.value === 0x9F && size.value >= 1 && size.value <= 8) {
+                        let v = 0;
+                        for (let i = 0; i < size.value; i++) { v = v * 256 + b[dataStart + i]; }
+                        if (v > 0 && v <= 64) { out.channels = v; }
+                    } else if (id.value === 0xB5 && (size.value === 4 || size.value === 8)) {
+                        const dvw = new DataView(b.buffer, b.byteOffset + dataStart, size.value);
+                        out.sampleRate = Math.round(size.value === 4 ? dvw.getFloat32(0) : dvw.getFloat64(0));
+                    }
+
+                    if (out.channels && out.sampleRate) return;
+                    if (size.value <= 0) return;
+                    p = dataStart + size.value;
+                }
+            }
+
+            try { walk(0, b.length, 0); } catch (e) { /* obcięty nagłówek — zdecyduje dekoder */ }
+            return out;
+        }
+
+        // 'foa' | 'binaural' | 'unknown' (unknown = trzeba zdekodować, żeby się dowiedzieć)
+        function decideMode(probe) {
+            if (state.sourceMode === 'foa') return 'foa';
+            if (state.sourceMode === 'binaural') return 'binaural';
+            if (probe && probe.channels) return probe.channels >= 3 ? 'foa' : 'binaural';
+            if (probe && probe.maxChannels === 2) return 'binaural';
+            return 'unknown';
+        }
+
+        // Awaryjne wymuszenie trybu — schowane w Szczegółach, dla pliku z zepsutym nagłówkiem
+        function overrideMode() {
+            state.sourceMode = (state.mode === 'binaural') ? 'foa' : 'binaural';
+            if (state.lastFile) {
+                loadFile(state.lastFile, true);
+            } else if (state.lastWasDemo) {
+                loadDemoFile(true);
+            } else {
+                updateStatus('Najpierw wczytaj plik.', 'error');
+            }
+        }
+
+        function syncOverrideRow() {
+            const row = document.getElementById('overrideRow');
+            const btn = document.getElementById('overrideBtn');
+            const has = !!(state.lastFile || state.lastWasDemo);
+            row.classList.toggle('hidden', !has);
+            btn.textContent = state.mode === 'binaural'
+                ? 'wymuś tryb AmbiX FOA'
+                : 'wymuś tryb binauralny';
         }
 
         // ===========================================
         // FILE LOADING
         // ===========================================
-        async function loadDemoFile() {
+        async function loadDemoFile(keepMode) {
             const btn = document.getElementById('loadDemoBtn');
             btn.disabled = true;
+            if (!keepMode) { state.sourceMode = 'auto'; }
             if (window.location.protocol === 'file:') {
                 updateStatus('Demo nie działa lokalnie (file://). Wgraj plik ręcznie lub uruchom na serwerze (GitHub Pages).', 'error');
                 btn.disabled = false;
                 return;
             }
+            state.lastFile = null;
+            state.lastWasDemo = true;
             try {
                 await initializeAudioContext();
                 updateStatus('Pobieranie pliku demonstracyjnego...', 'loading');
@@ -622,7 +1076,12 @@
                     throw new Error('Nie można załadować pliku demo (HTTP ' + response.status + ').');
                 }
                 const arrayBuffer = await response.arrayBuffer();
-                await decodeAudioFile(arrayBuffer, 'pociag.opus (demo)');
+                const probe = sniffAudioHeader(arrayBuffer.slice(0, 262144));
+                if (decideMode(probe) === 'binaural') {
+                    await loadBinauralStream(DEMO_FILE_PATH, 'pociag.opus (demo)', probe, false);
+                } else {
+                    await decodeAudioFile(arrayBuffer, 'pociag.opus (demo)', probe);
+                }
             } catch (error) {
                 console.error('Error loading demo:', error);
                 updateStatus('Błąd: ' + error.message, 'error');
@@ -631,14 +1090,45 @@
             }
         }
 
-        async function loadFileFromDisk() {
-            const file = document.getElementById('fileInput').files[0];
-            if (!file) { updateStatus('Wybierz plik!', 'error'); return; }
+        function openFilePicker() { document.getElementById('fileInput').click(); }
+
+        // Wybór pliku ładuje od razu — bez drugiego kliknięcia
+        function loadPickedFile() {
+            const input = document.getElementById('fileInput');
+            const file = input.files[0];
+            input.value = '';        // bez tego wybranie tego samego pliku drugi raz nie odpala 'change'
+            if (file) { loadFile(file); }
+        }
+
+        async function loadFile(file, keepMode) {
+            if (!file) { updateStatus('Nie wybrano pliku.', 'error'); return; }
+            if (!keepMode) { state.sourceMode = 'auto'; }   // wymuszenie dotyczy jednego pliku, nie na zawsze
+            state.lastFile = file;
+            state.lastWasDemo = false;
             try {
                 await initializeAudioContext();
-                updateStatus('Ładowanie pliku...', 'loading');
+                updateStatus('Analiza nagłówka pliku...', 'loading');
+                const head = await file.slice(0, 262144).arrayBuffer();
+                const probe = sniffAudioHeader(head);
+                const target = decideMode(probe);
+
+                // 2 kanały -> strumieniowanie przez <audio>, bez ładowania całości do pamięci
+                if (target === 'binaural') {
+                    await loadBinauralStream(URL.createObjectURL(file), file.name, probe, true);
+                    return;
+                }
+                if (target === 'foa' && !state.isOmnitoneReady) {
+                    updateStatus('Plik wygląda na AmbiX FOA, ale dekoder Omnitone się nie wczytał. Odśwież stronę.', 'error');
+                    return;
+                }
+                const mb = Math.round(file.size / 1048576);
+                if (file.size > BIG_FILE_MB * 1024 * 1024) {
+                    updateStatus('Duży plik (' + mb + ' MB) — dekodowanie AmbiX do pamięci może potrwać...', 'loading');
+                } else {
+                    updateStatus('Ładowanie pliku...', 'loading');
+                }
                 const arrayBuffer = await file.arrayBuffer();
-                await decodeAudioFile(arrayBuffer, file.name);
+                await decodeAudioFile(arrayBuffer, file.name, probe);
             } catch (error) {
                 console.error('Error loading file:', error);
                 updateStatus('Błąd: ' + error.message, 'error');
@@ -646,57 +1136,210 @@
         }
 
         // ===========================================
+        // ŚCIEŻKA BINAURALNA — strumień przez <audio> + createMediaElementSource
+        // ===========================================
+        function ensureMediaGraph() {
+            if (!state.mediaEl) {
+                state.mediaEl = document.getElementById('mediaEl');
+                state.mediaEl.addEventListener('ended', onMediaEnded);
+            }
+            if (!state.mediaSource && state.audioContext) {
+                state.mediaSource = state.audioContext.createMediaElementSource(state.mediaEl);
+                state.mediaSource.connect(state.binGain);
+            }
+        }
+
+        function releaseStream() {
+            if (state.mediaEl) {
+                try { state.mediaEl.pause(); state.mediaEl.removeAttribute('src'); state.mediaEl.load(); } catch (e) {}
+            }
+            if (state.objectUrl) { URL.revokeObjectURL(state.objectUrl); state.objectUrl = null; }
+        }
+
+        function onMediaEnded() {
+            state.isPlaying = false;
+            state.isPaused = false;
+            setPlayButton(false);
+            updateTimeDisplay(0, mediaDuration());
+            updateProgressBar(0, mediaDuration());
+            updateAudioContextStatus();
+        }
+
+        async function loadBinauralStream(url, fileName, probe, isObjectUrl) {
+            ensureMediaGraph();
+            stopAudio();
+            // Stary blob URL zwalniamy DOPIERO po podpięciu nowego źródła —
+            // inaczej przeglądarka zgłasza nieudane żądanie na unieważniony URL.
+            const oldUrl = state.objectUrl;
+            state.objectUrl = isObjectUrl ? url : null;
+
+            state.mode = 'binaural';
+            state.engine = 'media';
+            state.buffer = null;
+            state.currentFileName = fileName;
+            state.pauseTime = 0;
+
+            updateStatus('Otwieranie strumienia binauralnego...', 'loading');
+            const el = state.mediaEl;
+            await new Promise((resolve, reject) => {
+                function cleanup() {
+                    el.removeEventListener('loadedmetadata', onOk);
+                    el.removeEventListener('error', onErr);
+                }
+                function onOk() { cleanup(); resolve(); }
+                function onErr() { cleanup(); reject(new Error('Przeglądarka nie potrafi odtworzyć tego pliku.')); }
+                el.addEventListener('loadedmetadata', onOk);
+                el.addEventListener('error', onErr);
+                el.src = url;
+                el.load();
+            });
+            if (oldUrl) { URL.revokeObjectURL(oldUrl); }
+
+            const dur = isFinite(el.duration) ? el.duration : 0;
+            const ch = (probe && probe.channels) || 2;
+            const sr = (probe && probe.sampleRate) || null;
+            markFileLoaded();
+            setSignalInfo(fileName, ch, sr, probe);
+            applyModeUI();
+            announceFile(fileName, ch, sr, probe);
+            updateTimeDisplay(0, dur);
+            updateProgressBar(0, dur);
+            document.getElementById('channelWarn').classList.add('hidden');
+            updateStatus('Wczytano strumieniowo: ' + fileName + ' (' + formatTime(dur) + ')', 'success');
+            enableTransport();
+            setupMediaSession(fileName);
+        }
+
+        function setupMediaSession(title) {
+            if (!('mediaSession' in navigator)) return;
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: title, artist: 'Spatial Audio Lab', album: 'Ambisonic Web Player'
+                });
+                navigator.mediaSession.setActionHandler('play', () => playAudio());
+                navigator.mediaSession.setActionHandler('pause', () => pauseAudio());
+                navigator.mediaSession.setActionHandler('seekbackward', () => seekBy(-15));
+                navigator.mediaSession.setActionHandler('seekforward', () => seekBy(15));
+            } catch (e) { /* przeglądarka bez Media Session — pomijamy */ }
+        }
+
+        function setSignalInfo(fileName, channels, sampleRate, probe) {
+            const cont = (probe && probe.container) ? ' · ' + probe.container : '';
+            document.getElementById('fileName').textContent = fileName;
+            document.getElementById('channelCount').textContent = channels + cont;
+            document.getElementById('sampleRate').textContent = sampleRate ? sampleRate + ' Hz' : '—';
+            document.getElementById('engineValue').textContent =
+                state.engine === 'media' ? 'Strumień' : 'Zdekodowany w pamięci';
+        }
+
+        // ===========================================
         // AUDIO DECODING
         // ===========================================
-        async function decodeAudioFile(arrayBuffer, fileName) {
+        async function decodeAudioFile(arrayBuffer, fileName, probe) {
             try {
                 updateStatus('Dekodowanie audio...', 'loading');
                 const decodedBuffer = await state.audioContext.decodeAudioData(arrayBuffer);
                 stopAudio();
+                releaseStream();
 
+                const ch = decodedBuffer.numberOfChannels;
                 state.buffer = decodedBuffer;
+                state.engine = 'buffer';
+                state.mode = (state.sourceMode === 'foa') ? 'foa'
+                    : (state.sourceMode === 'binaural') ? 'binaural'
+                    : (ch >= 3 ? 'foa' : 'binaural');
                 state.currentFileName = fileName;
                 state.pauseTime = 0;
 
-                document.getElementById('fileName').textContent = fileName;
-                document.getElementById('channelCount').textContent = decodedBuffer.numberOfChannels;
-                document.getElementById('sampleRate').textContent = decodedBuffer.sampleRate + ' Hz';
+                if (state.mode === 'foa' && !state.isOmnitoneReady) {
+                    updateStatus('Dekoder FOA niedostępny — nie da się odtworzyć pliku ambisonicznego. Odśwież stronę.', 'error');
+                    return;
+                }
+
+                const srcRate = (probe && probe.sampleRate) || decodedBuffer.sampleRate;
+                markFileLoaded();
+                setSignalInfo(fileName, ch, srcRate, probe);
+                applyModeUI();
+                announceFile(fileName, ch, srcRate, probe);
                 updateTimeDisplay(0, decodedBuffer.duration);
                 updateProgressBar(0, decodedBuffer.duration);
 
                 const warn = document.getElementById('channelWarn');
-                if (decodedBuffer.numberOfChannels !== 4) {
-                    warn.textContent = 'Uwaga: plik ma ' + decodedBuffer.numberOfChannels + ' kan. (FOA wymaga 4 kanałów AmbiX). Odtwarzanie może być nieprawidłowe.';
-                    warn.classList.remove('hidden');
-                    updateStatus('Wczytano (uwaga: ' + decodedBuffer.numberOfChannels + ' kanały, nie 4).', 'error');
-                } else {
-                    warn.classList.add('hidden');
-                    updateStatus('Wczytano: ' + fileName + ' (' + formatTime(decodedBuffer.duration) + ')', 'success');
+                let msg = '';
+                if (state.mode === 'foa' && ch !== 4) {
+                    msg = 'Uwaga: dekoder FOA oczekuje 4 kanałów AmbiX (ACN/SN3D), a plik ma ' + ch + '. Odtwarzanie może być nieprawidłowe.';
+                } else if (state.mode === 'binaural' && ch !== 2) {
+                    msg = 'Uwaga: tryb binauralny oczekuje 2 kanałów, a plik ma ' + ch + '.';
+                } else if (state.mode === 'binaural' && state.sourceMode === 'auto') {
+                    msg = 'Liczby kanałów nie dało się odczytać z nagłówka — plik został zdekodowany w całości do pamięci zamiast strumieniowo.';
                 }
+                if (msg) { warn.textContent = msg; warn.classList.remove('hidden'); }
+                else { warn.classList.add('hidden'); }
 
+                updateStatus('Wczytano: ' + fileName + ' (' + formatTime(Math.round(decodedBuffer.duration)) + ')', 'success');
                 enableTransport();
-                showOrientationSection();
+                syncOrientationDisplay();
             } catch (error) {
                 console.error('Decode error:', error);
-                updateStatus('Błąd dekodowania: ' + error.message, 'error');
+                updateStatus('Błąd dekodowania: ' + error.message + ' — ta przeglądarka może nie obsługiwać tego formatu.', 'error');
             }
         }
 
         // ===========================================
         // PLAYBACK
         // ===========================================
+        // Czy jest co odtwarzać — zależnie od silnika
+        function isLoaded() {
+            if (state.engine === 'media') { return !!(state.mediaEl && state.mediaEl.src); }
+            if (!state.buffer) return false;
+            return state.mode === 'binaural' || state.isOmnitoneReady;
+        }
+        // Wejście łańcucha audio: FOA idzie przez Omnitone, binaural prosto na wyjście
+        function chainInput() {
+            return state.mode === 'binaural' ? state.binGain : state.gainNode;
+        }
+        function mediaDuration() {
+            if (state.engine === 'media') {
+                const d = state.mediaEl ? state.mediaEl.duration : 0;
+                return isFinite(d) ? d : 0;
+            }
+            return state.buffer ? state.buffer.duration : 0;
+        }
+        function mediaCurrent() {
+            if (state.engine === 'media') { return state.mediaEl ? state.mediaEl.currentTime : 0; }
+            if (!state.buffer) return 0;
+            return state.isPlaying ? (state.audioContext.currentTime - state.startTime) : state.pauseTime;
+        }
+
         function togglePlayPause() {
-            if (!state.buffer || !state.isOmnitoneReady) return;
+            if (!isLoaded()) return;
             if (state.isPlaying) { pauseAudio(); } else { playAudio(); }
         }
 
         function playAudio() {
-            if (!state.buffer || !state.isOmnitoneReady) return;
+            if (!isLoaded()) return;
             if (state.audioContext.state === 'suspended') { state.audioContext.resume(); }
+
+            if (state.engine === 'media') {
+                const p = state.mediaEl.play();
+                if (p && p.catch) {
+                    p.catch((err) => {
+                        state.isPlaying = false;
+                        setPlayButton(false);
+                        updateStatus('Nie udało się odtworzyć: ' + err.message, 'error');
+                    });
+                }
+                state.isPlaying = true;
+                state.isPaused = false;
+                setPlayButton(true);
+                updateAudioContextStatus();
+                startTimeUpdate();
+                return;
+            }
 
             state.source = state.audioContext.createBufferSource();
             state.source.buffer = state.buffer;
-            state.source.connect(state.gainNode);
+            state.source.connect(chainInput());
             state.source.onended = () => {
                 if (state.isPlaying && !state.isPaused) {
                     state.isPlaying = false;
@@ -718,6 +1361,15 @@
         }
 
         function pauseAudio() {
+            if (state.engine === 'media') {
+                if (!state.mediaEl) return;
+                state.mediaEl.pause();
+                state.isPaused = true;
+                state.isPlaying = false;
+                setPlayButton(false);
+                updateAudioContextStatus();
+                return;
+            }
             if (!state.source || !state.isPlaying) return;
             state.pauseTime = state.audioContext.currentTime - state.startTime;
             if (state.pauseTime >= state.buffer.duration) { state.pauseTime = 0; }
@@ -734,45 +1386,136 @@
                 try { state.source.stop(); } catch (e) {}
                 state.source = null;
             }
+            if (state.engine === 'media' && state.mediaEl) {
+                try { state.mediaEl.pause(); state.mediaEl.currentTime = 0; } catch (e) {}
+            }
             state.isPlaying = false;
             state.isPaused = false;
             state.pauseTime = 0;
             setPlayButton(false);
-            if (state.buffer) {
-                updateTimeDisplay(0, state.buffer.duration);
-                updateProgressBar(0, state.buffer.duration);
+            const dur = mediaDuration();
+            if (dur) {
+                updateTimeDisplay(0, dur);
+                updateProgressBar(0, dur);
             }
             updateAudioContextStatus();
         }
 
         function setPlayButton(playing) {
             const btn = document.getElementById('playBtn');
-            if (playing) { btn.classList.add('playing'); btn.innerHTML = '&#10074;&#10074; Pauza'; }
-            else { btn.classList.remove('playing'); btn.innerHTML = '&#9654; Odtwórz'; }
+            btn.innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
+            btn.setAttribute('aria-label', playing ? 'Pauza' : 'Odtwórz');
+            btn.setAttribute('title', playing ? 'Pauza' : 'Odtwórz');
         }
 
         function seekAudio(event) {
-            if (!state.buffer) return;
+            const dur = mediaDuration();
+            if (!dur) return;
             const progressBar = document.getElementById('progressBar');
             const rect = progressBar.getBoundingClientRect();
             const clickPosition = (event.clientX - rect.left) / rect.width;
-            const seekTime = clickPosition * state.buffer.duration;
+            seekTo(clickPosition * dur);
+        }
+
+        function seekTo(seconds) {
+            const dur = mediaDuration();
+            if (!dur) return;
+            const t = Math.max(0, Math.min(seconds, dur));
+
+            if (state.engine === 'media') {
+                state.mediaEl.currentTime = t;
+                updateTimeDisplay(t, dur);
+                updateProgressBar(t, dur);
+                return;
+            }
             const wasPlaying = state.isPlaying;
             if (state.source) {
                 state.isPaused = true;
                 state.source.stop();
                 state.source = null;
             }
-            state.pauseTime = Math.max(0, Math.min(seekTime, state.buffer.duration));
+            state.pauseTime = t;
             state.isPlaying = false;
-            updateTimeDisplay(state.pauseTime, state.buffer.duration);
-            updateProgressBar(state.pauseTime, state.buffer.duration);
+            updateTimeDisplay(t, dur);
+            updateProgressBar(t, dur);
             if (wasPlaying) { playAudio(); }
         }
 
+        function seekBy(delta) { seekTo(mediaCurrent() + delta); }
+
+        // ===========================================
+        // KLAWIATURA
+        // ===========================================
+        // Pasek postępu jest suwakiem (role=slider), więc musi reagować na strzałki.
+        function onProgressKey(e) {
+            if (!mediaDuration()) return;
+            const K = e.key;
+            if (K === 'ArrowRight' || K === 'ArrowUp') { seekBy(5); }
+            else if (K === 'ArrowLeft' || K === 'ArrowDown') { seekBy(-5); }
+            else if (K === 'PageUp') { seekBy(30); }
+            else if (K === 'PageDown') { seekBy(-30); }
+            else if (K === 'Home') { seekTo(0); }
+            else if (K === 'End') { seekTo(mediaDuration()); }
+            else if (K === ' ' || K === 'Enter') { togglePlayPause(); }
+            else { return; }
+            e.preventDefault();
+        }
+
+        // Skróty globalne — z pominięciem pól formularza, żeby nie odbierać im klawiszy
+        function onGlobalKey(e) {
+            const t = e.target;
+            const tag = t && t.tagName ? t.tagName : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+            if (t && t.id === 'progressBar') return;           // ma własną obsługę
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            if (!mediaDuration()) return;
+
+            if (e.key === ' ') {
+                if (tag === 'BUTTON') return;                  // spacja aktywuje przycisk pod fokusem
+                togglePlayPause();
+            } else if (e.key === 'ArrowRight') { seekBy(5); }
+            else if (e.key === 'ArrowLeft') { seekBy(-5); }
+            else if (e.key === 'PageUp') { seekBy(30); }
+            else if (e.key === 'PageDown') { seekBy(-30); }
+            else if (e.key === 'Home') { seekTo(0); }
+            else { return; }
+            e.preventDefault();
+        }
+
+        // ===========================================
+        // PRZECIĄGNIJ I UPUŚĆ PLIK NA WIZUALIZACJĘ
+        // ===========================================
+        function setupDropzone() {
+            const screen = document.getElementById('screen');
+            const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+            ['dragenter', 'dragover'].forEach(ev => screen.addEventListener(ev, (e) => {
+                stop(e);
+                if (e.dataTransfer) { e.dataTransfer.dropEffect = 'copy'; }
+                screen.classList.add('drag-over');
+            }));
+            ['dragleave', 'dragend'].forEach(ev => screen.addEventListener(ev, (e) => {
+                stop(e);
+                screen.classList.remove('drag-over');
+            }));
+            screen.addEventListener('drop', (e) => {
+                stop(e);
+                screen.classList.remove('drag-over');
+                const f = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files[0] : null;
+                if (f) { loadFile(f); }
+            });
+
+            // bez tego przeglądarka otworzy upuszczony plik zamiast strony
+            ['dragover', 'drop'].forEach(ev => window.addEventListener(ev, (e) => {
+                if (!screen.contains(e.target)) { e.preventDefault(); }
+            }));
+        }
+
         function setVolume(value) {
-            if (state.gainNode) { state.gainNode.gain.value = parseFloat(value); }
-            document.getElementById('volumeValue').textContent = Math.round(value * 100) + '%';
+            state.volume = parseFloat(value);
+            if (state.gainNode) { state.gainNode.gain.value = state.volume; }
+            if (state.binGain) { state.binGain.gain.value = state.volume; }
+            document.getElementById('volumeValue').textContent = Math.round(state.volume * 100) + '%';
         }
 
         // ===========================================
@@ -782,21 +1525,26 @@
         function startTimeUpdate() {
             clearInterval(timeUpdateInterval);
             timeUpdateInterval = setInterval(() => {
-                if (state.audioContext && state.buffer && state.isPlaying) {
-                    const currentTime = state.audioContext.currentTime - state.startTime;
-                    if (currentTime <= state.buffer.duration) {
-                        updateTimeDisplay(currentTime, state.buffer.duration);
-                        updateProgressBar(currentTime, state.buffer.duration);
-                    }
+                if (!state.isPlaying) return;
+                const dur = mediaDuration();
+                if (!dur) return;
+                const currentTime = mediaCurrent();
+                if (currentTime <= dur) {
+                    updateTimeDisplay(currentTime, dur);
+                    updateProgressBar(currentTime, dur);
                 }
             }, 50);
         }
         function updateTimeDisplay(current, duration) {
-            document.getElementById('timeDisplay').textContent = formatTime(current) + ' / ' + formatTime(duration);
+            document.getElementById('timeDisplay').textContent =
+                formatTime(current) + ' / ' + formatTime(Math.round(duration));
         }
         function updateProgressBar(current, duration) {
-            const percentage = (current / duration) * 100;
-            document.getElementById('progressFill').style.width = percentage + '%';
+            const pct = duration ? Math.max(0, Math.min(100, (current / duration) * 100)) : 0;
+            const bar = document.getElementById('progressBar');
+            document.getElementById('progressFill').style.width = pct + '%';
+            bar.setAttribute('aria-valuenow', Math.round(pct));
+            bar.setAttribute('aria-valuetext', formatTime(current) + ' z ' + formatTime(Math.round(duration)));
         }
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -814,11 +1562,117 @@
         }
         function enableTransport() {
             document.getElementById('transportPanel').classList.remove('is-disabled');
+            document.querySelectorAll('#transportPanel button, #transportPanel input')
+                .forEach(el => { el.disabled = false; });
+            document.getElementById('progressBar').setAttribute('tabindex', '0');
         }
-        function showOrientationSection() {
-            if (window.DeviceOrientationEvent) {
-                document.getElementById('orientationSection').classList.remove('hidden');
+        // Odczyt z czujnika pokazujemy dopiero gdy tryb Żyroskop jest realnie włączony —
+        // na desktopie ten panel był tylko szumem.
+        function syncOrientationDisplay() {
+            const show = state.mode === 'foa' && state.rotationMode === 'gyroscope';
+            document.getElementById('orientationDisplay').classList.toggle('hidden', !show);
+        }
+
+        // --- Pomoc pod znakiem zapytania ---
+        function toggleHelp(btn, id) {
+            const el = document.getElementById(id);
+            const nowHidden = el.classList.toggle('hidden');
+            btn.setAttribute('aria-expanded', nowHidden ? 'false' : 'true');
+            btn.textContent = nowHidden ? '?' : '\u00D7';
+            btn.setAttribute('title', nowHidden ? 'Pokaż wyjaśnienie' : 'Ukryj wyjaśnienie');
+        }
+
+        // --- Zwijana sekcja Szczegóły ---
+        function toggleDetails() {
+            const body = document.getElementById('detailsBody');
+            const btn = document.getElementById('detailsToggle');
+            const nowHidden = body.classList.toggle('hidden');
+            btn.setAttribute('aria-expanded', nowHidden ? 'false' : 'true');
+            document.getElementById('detailsCaret').textContent = nowHidden ? '+' : '\u2212';
+        }
+
+        const ROT_LABELS = { manual: 'Ręczna', gyroscope: 'Żyroskop', auto: 'Auto' };
+
+        // Przełącza cały interfejs między AmbiX FOA a binauralnym.
+        // Dla binauralnego rotacja pola nie ma sensu — sygnał jest już zrenderowany na uszy.
+        function applyModeUI() {
+            const bin = state.mode === 'binaural';
+            const dim = state.hasFile ? 1 : 0.45;   // stan pusty: wizualizacja wycofana
+
+            document.getElementById('rotationControlSection').classList.toggle('is-locked', bin);
+            document.getElementById('rotLockNote').classList.toggle('hidden', !bin);
+            // pointer-events nie wypycha z kolejności Tab — kontrolki trzeba realnie wyłączyć
+            document.querySelectorAll('#rotationControlSection input, #rotationControlSection button')
+                .forEach(el => { el.disabled = bin; });
+            syncOrientationDisplay();
+            document.getElementById('hudRead').classList.toggle('hidden', bin || !state.hasFile);
+            document.getElementById('hudKicker').classList.toggle('hidden', !state.hasFile);
+            document.getElementById('hudMode').classList.toggle('hidden', !state.hasFile);
+            document.getElementById('ctrlHint').classList.toggle('hidden', bin || !state.hasFile);
+            document.getElementById('resetRotBtn').classList.toggle('hidden', bin);
+
+            // miernik: L/R dla binauralnego, sam W dla AmbiX
+            document.getElementById('mk1').textContent = bin ? 'L' : 'W';
+            document.getElementById('mrow2').classList.toggle('hidden', !bin);
+            document.getElementById('hudMeter').classList.toggle('hidden', !state.hasFile);
+
+            const mv = document.getElementById('modeValue');
+            mv.textContent = bin ? 'Binaural · 2 kan.' : 'AmbiX FOA · 4 kan.';
+            mv.className = 'val ' + (bin ? 'mode-bin' : 'mode-foa');
+
+            document.getElementById('hudKicker').textContent = bin ? 'Sygnał binauralny' : 'Pole dźwiękowe FOA';
+            document.getElementById('hudLegend').classList.toggle('hidden', !state.hasFile);
+            document.getElementById('hudLegend').innerHTML = bin
+                ? '<b>L</b> lewe ucho &middot; <b>R</b> prawe ucho &middot; kierunki zapisane w sygnale'
+                : '<b>F</b> przód &middot; <b>B</b> tył &middot; <b>L</b> lewo &middot; <b>R</b> prawo &middot; <b>U</b> góra &middot; <b>D</b> dół';
+
+            if (bin) {
+                stopAutoSpin();
+                state.rotationX = 0; state.rotationY = 0; state.rotationZ = 0;
+                document.getElementById('rotationX').value = 0;
+                document.getElementById('rotationY').value = 0;
+                document.getElementById('rotationZ').value = 0;
+                syncRotationReadouts();
+                document.getElementById('hudMode').textContent = 'Tryb: Binaural (2 kan.)';
+            } else {
+                document.getElementById('hudMode').textContent = 'Tryb: ' + ROT_LABELS[state.rotationMode];
             }
+            if (field.canvas) { field.canvas.style.cursor = bin ? 'default' : 'grab'; }
+            syncOverrideRow();
+        }
+
+        // Plakietka na ekranie + jednorazowy komunikat "rozpoznano" — to zastępuje
+        // dawny panel wyboru interpretacji kanałów.
+        function announceFile(fileName, channels, sampleRate, probe) {
+            const bin = state.mode === 'binaural';
+            const dim = state.hasFile ? 1 : 0.45;   // stan pusty: wizualizacja wycofana
+            const kind = bin ? 'Binaural' : 'AmbiX FOA';
+            const cont = (probe && probe.container) ? probe.container : 'audio';
+            const rate = sampleRate ? Math.round(sampleRate / 1000) + ' kHz' : '';
+
+            const badge = document.getElementById('fileBadge');
+            badge.textContent = kind + ' \u00B7 ' + channels + ' kan. \u00B7 ' + cont + (rate ? ' \u00B7 ' + rate : '');
+            badge.className = 'file-badge ' + (bin ? 'is-bin' : 'is-foa');
+
+            document.getElementById('recMain').textContent = kind + ' \u00B7 ' + channels + ' kanały';
+            document.getElementById('recSub').textContent = [fileName, cont, rate].filter(Boolean).join(' \u00B7 ');
+
+            const rec = document.getElementById('recognized');
+            rec.classList.remove('hidden', 'fading');
+            clearTimeout(state.recTimer);
+            state.recTimer = setTimeout(() => {
+                rec.classList.add('fading');
+                setTimeout(() => rec.classList.add('hidden'), 500);
+            }, 2500);
+
+            document.getElementById('detailsSummary').textContent =
+                kind + ' \u00B7 ' + channels + ' kan.' + (rate ? ' \u00B7 ' + rate : '');
+        }
+
+        function markFileLoaded() {
+            state.hasFile = true;
+            document.getElementById('dropzone').classList.add('hidden');
+            document.getElementById('hudMeter').classList.remove('hidden');
         }
         function updateAudioContextStatus() {
             const el = document.getElementById('acStatus');
@@ -837,13 +1691,14 @@
         // ROTATION
         // ===========================================
         function setRotationMode(evt, mode) {
+            if (state.mode === 'binaural') return;
             state.rotationMode = mode;
-            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-            evt.target.classList.add('active');
-            const labels = { manual: 'Ręczna', gyroscope: 'Żyroskop', auto: 'Auto' };
-            document.getElementById('hudMode').textContent = 'Tryb: ' + labels[mode];
+            document.querySelectorAll('#rotationControlSection .mode-btn').forEach(btn => btn.classList.remove('active'));
+            evt.currentTarget.classList.add('active');
+            document.getElementById('hudMode').textContent = 'Tryb: ' + ROT_LABELS[mode];
             if (mode === 'auto') { startAutoSpin(); } else { stopAutoSpin(); }
             if (mode === 'gyroscope') { requestGyroscopePermission(); }
+            syncOrientationDisplay();
         }
 
         function updateRotationFromSliders() {
@@ -911,7 +1766,8 @@
         function onDeviceOrientation(event) {
             if (state.rotationMode !== 'gyroscope') return;
             const alpha = event.alpha || 0, beta = event.beta || 0, gamma = event.gamma || 0;
-            document.getElementById('orientationDisplay').textContent =
+            const od = document.getElementById('orientationDisplay');
+            od.textContent =
                 'Alpha: ' + Math.round(alpha) + '° | Beta: ' + Math.round(beta) + '° | Gamma: ' + Math.round(gamma) + '°';
             let yaw = -alpha; if (yaw < -180) { yaw += 360; }
             let pitch = Math.max(-90, Math.min(90, -beta));
@@ -988,29 +1844,36 @@
             }
         }
 
+        // bias = odsunięcie etykiety w pikselach ekranu; B i D rzutują się na tę samą oś pionową
         const CARD = [
-            { v: { x: 0, y: 0, z: 1 }, t: 'F', c: '0,229,204' },
-            { v: { x: 0, y: 0, z: -1 }, t: 'B', c: '156,152,144' },
-            { v: { x: 1, y: 0, z: 0 }, t: 'R', c: '255,171,0' },
-            { v: { x: -1, y: 0, z: 0 }, t: 'L', c: '255,171,0' },
-            { v: { x: 0, y: 1, z: 0 }, t: 'U', c: '156,152,144' },
-            { v: { x: 0, y: -1, z: 0 }, t: 'D', c: '156,152,144' }
+            { v: { x: 0, y: 0, z: 1 }, t: 'F', c: '0,229,204', bias: { x: 0, y: 0 } },
+            { v: { x: 0, y: 0, z: -1 }, t: 'B', c: '156,152,144', bias: { x: 15, y: -4 } },
+            { v: { x: 1, y: 0, z: 0 }, t: 'R', c: '255,171,0', bias: { x: 0, y: 0 } },
+            { v: { x: -1, y: 0, z: 0 }, t: 'L', c: '255,171,0', bias: { x: 0, y: 0 } },
+            { v: { x: 0, y: 1, z: 0 }, t: 'U', c: '156,152,144', bias: { x: 0, y: 0 } },
+            { v: { x: 0, y: -1, z: 0 }, t: 'D', c: '156,152,144', bias: { x: -15, y: 4 } }
         ];
 
-        function drawNode(node) {
-            const ctx = field.ctx, p = projField(node.v);
-            const near = (1 - p.z) / 2;                 // 1 = blisko kamery, 0 = daleko
-            const alpha = 0.5 + near * 0.5;
-            const rad = 2.5 + near * 2.2;
-            ctx.fillStyle = 'rgba(' + node.c + ',' + alpha.toFixed(3) + ')';
-            ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI * 2); ctx.fill();
-            // etykieta odsunięta na zewnątrz (radialnie od środka ekranu)
+        // Gdzie ląduje etykieta węzła — używane też przez testy do wykrywania kolizji
+        function nodeLabelPos(node) {
+            const p = projField(node.v);
             let dx = p.x - field.cx, dy = p.y - field.cy;
-            const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+            const len = Math.hypot(dx, dy) || 1;
+            dx /= len; dy /= len;
+            const b = node.bias || { x: 0, y: 0 };
+            return { x: p.x + dx * 16 + b.x, y: p.y + dy * 16 + b.y, near: (1 - p.z) / 2, p: p };
+        }
+
+        function drawNode(node) {
+            const ctx = field.ctx;
+            const L = nodeLabelPos(node);
+            const near = L.near;                        // 1 = blisko kamery, 0 = daleko
+            ctx.fillStyle = 'rgba(' + node.c + ',' + (0.5 + near * 0.5).toFixed(3) + ')';
+            ctx.beginPath(); ctx.arc(L.p.x, L.p.y, 2.5 + near * 2.2, 0, Math.PI * 2); ctx.fill();
             ctx.font = '600 ' + (12 + near * 2).toFixed(0) + 'px Azeret Mono, monospace';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillStyle = 'rgba(' + node.c + ',' + (0.6 + near * 0.4).toFixed(3) + ')';
-            ctx.fillText(node.t, p.x + dx * 16, p.y + dy * 16);
+            ctx.fillText(node.t, L.x, L.y);
         }
 
         function drawArrowHead(from, to, color, size) {
@@ -1035,16 +1898,32 @@
             ctx.fillStyle = g;
             ctx.fillRect(0, 0, field.w, field.h);
 
-            // siatka sfery (amber = pole ambisoniczne)
-            strokeSpherical(ringLat(0), '255,171,0', 0.10, 0.40, 1.3);
-            strokeSpherical(ringLat(35), '255,171,0', 0.06, 0.20, 1.0);
-            strokeSpherical(ringLat(-35), '255,171,0', 0.06, 0.20, 1.0);
-            for (let lon = 0; lon < 180; lon += 45) {
-                strokeSpherical(meridian(lon), '255,171,0', 0.05, 0.16, 1.0);
+            const bin = state.mode === 'binaural';
+            const dim = state.hasFile ? 1 : 0.45;   // stan pusty: wizualizacja wycofana
+            // Binaural: pole nie istnieje jako obiekt do obracania — zostaje sama oś uszu.
+            const nodes = bin ? CARD.filter(n => n.t === 'L' || n.t === 'R') : CARD;
+
+            if (bin) {
+                // sam równik, wygaszony — kontekst przestrzenny bez sugestii, że da się nim kręcić
+                strokeSpherical(ringLat(0), '156,152,144', 0.05, 0.16, 1.0);
+            } else {
+                // siatka sfery (amber = pole ambisoniczne)
+                strokeSpherical(ringLat(0), '255,171,0', 0.10 * dim, 0.40 * dim, 1.3);
+                strokeSpherical(ringLat(35), '255,171,0', 0.06 * dim, 0.20 * dim, 1.0);
+                strokeSpherical(ringLat(-35), '255,171,0', 0.06 * dim, 0.20 * dim, 1.0);
+                // meridian() rysuje POLOWE okregu wielkiego (r = cos(a) >= 0),
+                // wiec petla musi obejsc pelne 360 stopni - inaczej do L i B nie dochodzi zadna linia.
+                for (let lon = 0; lon < 360; lon += 45) {
+                    strokeSpherical(meridian(lon), '255,171,0', 0.05 * dim, 0.16 * dim, 1.0);
+                }
             }
 
+            // Bez pliku zostaje sama siatka — słuchacz i węzły pojawiają się dopiero z dźwiękiem,
+            // żeby zaproszenie do wczytania miało czyste tło.
+            if (!state.hasFile) { return; }
+
             // węzły pola z DALSZEJ półkuli (za słuchaczem) — rysowane najpierw
-            const farNodes = CARD.filter(n => projField(n.v).z > 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
+            const farNodes = nodes.filter(n => projField(n.v).z > 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
             farNodes.forEach(drawNode);
 
             // === SŁUCHACZ (NIERUCHOMY, widok zza głowy) — pole obraca się wokół niego ===
@@ -1110,8 +1989,50 @@
             ctx.fillText('TY', O.x, O.y + hr + 13);
 
             // węzły pola z BLIŻSZEJ półkuli (przed słuchaczem, na wierzchu)
-            const nearNodes = CARD.filter(n => projField(n.v).z <= 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
+            const nearNodes = nodes.filter(n => projField(n.v).z <= 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
             nearNodes.forEach(drawNode);
+
+        }
+
+        // ===========================================
+        // MIERNIK POZIOMU — W dla AmbiX, L/R dla binauralnego (HTML w HUD, nie canvas)
+        // ===========================================
+        function readLevel(analyser) {
+            if (!analyser || !state.meterBuf) return 0;
+            analyser.getFloatTimeDomainData(state.meterBuf);
+            let sum = 0;
+            for (let i = 0; i < state.meterBuf.length; i++) { sum += state.meterBuf[i] * state.meterBuf[i]; }
+            return Math.sqrt(sum / state.meterBuf.length);
+        }
+        // szybki atak, wolniejszy opad — czytelniejsze niż surowe RMS
+        function smoothLevel(prev, next) {
+            return next > prev ? prev + (next - prev) * 0.5 : prev + (next - prev) * 0.12;
+        }
+        function toDb(rms) { return rms > 0.000001 ? 20 * Math.log10(rms) : -60; }
+
+        function paintMeterRow(barId, valId, rms) {
+            const db = toDb(rms);
+            const pct = Math.max(0, Math.min(1, (db + 60) / 60)) * 100;
+            const hot = db > -3;
+            const bar = document.getElementById(barId);
+            const val = document.getElementById(valId);
+            bar.style.width = pct.toFixed(1) + '%';
+            bar.classList.toggle('hot', hot);
+            val.textContent = (db <= -59.5 ? '-inf' : db.toFixed(1)) + ' dB';
+            val.classList.toggle('hot', hot);
+        }
+
+        function updateMeters() {
+            if (!state.hasFile) return;
+            if (state.mode === 'binaural') {
+                state.meterL = smoothLevel(state.meterL, readLevel(state.analyserL));
+                state.meterR = smoothLevel(state.meterR, readLevel(state.analyserR));
+                paintMeterRow('mb1', 'mv1', state.meterL);
+                paintMeterRow('mb2', 'mv2', state.meterR);
+            } else {
+                state.meterW = smoothLevel(state.meterW, readLevel(state.analyserW));
+                paintMeterRow('mb1', 'mv1', state.meterW);
+            }
         }
 
         // ===========================================
@@ -1132,18 +2053,17 @@
             if (state.rotationMode === 'manual') return;
             state.rotationMode = 'manual';
             stopAutoSpin();
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === 'Ręczna'));
+            document.querySelectorAll('#rotationControlSection .mode-btn')
+                .forEach(b => b.classList.toggle('active', b.textContent.trim() === 'Ręczna'));
             document.getElementById('hudMode').textContent = 'Tryb: Ręczna';
         }
 
-        function hideDragHint() { const h = document.getElementById('dragHint'); if (h) h.style.opacity = '0'; }
-
         function onPointerDown(e) {
+            if (state.mode === 'binaural') return;   // binaural: nie ma czym obracać
             drag = { x: e.clientX, y: e.clientY };
             try { field.canvas.setPointerCapture(e.pointerId); } catch (_) {}
             field.canvas.style.cursor = 'grabbing';
             ensureManualMode();
-            hideDragHint();
             e.preventDefault();
         }
         function onPointerMove(e) {
@@ -1167,12 +2087,14 @@
             try { field.canvas.releasePointerCapture(e.pointerId); } catch (_) {}
         }
         function resetRotation() {
+            if (state.mode === 'binaural') return;
             state.rotationX = 0; state.rotationY = 0; state.rotationZ = 0;
             pushRotationToUI();
         }
 
         function animationLoop() {
             if (field.ctx) { drawField(); }
+            updateMeters();
             requestAnimationFrame(animationLoop);
         }
 
@@ -1191,20 +2113,27 @@
             window.addEventListener('pointerup', onPointerUp);
             field.canvas.addEventListener('dblclick', resetRotation);
             syncRotationReadouts();
+            applyModeUI();
+            setupDropzone();
+            document.addEventListener('keydown', onGlobalKey);
+            // dopóki nie ma pliku, transport jest poza zasięgiem także z klawiatury
+            document.querySelectorAll('#transportPanel button, #transportPanel input')
+                .forEach(el => { el.disabled = true; });
+            document.getElementById('progressBar').setAttribute('tabindex', '-1');
+            syncOrientationDisplay();
             animationLoop();
 
             if (window.location.protocol === 'file:') {
-                document.getElementById('demoWarning').textContent = 'Demo wymaga serwera HTTP (np. GitHub Pages).';
-                updateStatus('Tryb lokalny (file://). Demo niedostępne, ale możesz załadować własny plik.', '');
+                updateStatus('Tryb lokalny (file://). Demo niedostępne, ale możesz wczytać własny plik.', '');
             } else {
                 updateStatus('Ładowanie bibliotek...', 'loading');
             }
             omnitonePromise
                 .then(() => {
                     if (window.location.protocol !== 'file:') {
-                        updateStatus('Gotów. Wczytaj demo lub własny plik AmbiX.', '');
+                        updateStatus('Gotów. Wybierz plik, przeciągnij go na wizualizację albo włącz demo.', '');
                     } else {
-                        updateStatus('Gotów. Załaduj własny plik audio.', '');
+                        updateStatus('Gotów. Wybierz plik albo przeciągnij go na wizualizację.', '');
                     }
                 })
                 .catch((error) => updateStatus('Błąd ładowania: ' + error.message, 'error'));
@@ -1215,6 +2144,8 @@
         document.addEventListener('click', () => {
             if (state.audioContext && state.audioContext.state === 'suspended') { state.audioContext.resume(); }
         }, { once: true });
+
+        window.addEventListener('pagehide', releaseStream);
     </script>
 </body>
 </html>
