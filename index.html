@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ambisonic Web Player — Spatial Audio Lab</title>
+    <title>Sfera — Spatial Audio Lab</title>
 
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="alternate icon" href="favicon.ico" />
@@ -15,7 +15,7 @@
 
     <style>
     /* ==========================================================================
-       SPATIAL AUDIO LAB — Ambisonic Web Player
+       SPATIAL AUDIO LAB — Sfera
        Zgodny z SAL Design Manifest v3.0 (tryb NARZĘDZIE = wydajność).
        Tokeny 1:1 z manifestem. Bez --acid wewnątrz narzędzia. Bez grain/blur.
        ========================================================================== */
@@ -76,6 +76,7 @@
         white-space: nowrap;
     }
     .back-hub:hover { color: var(--cream); border-color: var(--dim); }
+    .tool-sub { font-family: var(--mono); font-weight: 400; font-size: 0.68em; letter-spacing: 0.1em; text-transform: lowercase; color: var(--dim); }
     .tool-name {
         font-family: var(--display);
         font-weight: 500;
@@ -570,7 +571,7 @@
     <header class="tool-header">
         <div class="tool-header-left">
             <a class="back-hub" href="/">&larr; Hub</a>
-            <span class="tool-name">Ambisonic Web Player</span>
+            <span class="tool-name">Sfera <span class="tool-sub">&middot; odsłuch ambisoniczny</span></span>
         </div>
         <div class="ac-status" id="acStatus">
             <span class="ac-dot" id="acDot"></span>
@@ -632,7 +633,7 @@
                 <div class="dz-title">Upuść tutaj plik audio</div>
                 <div class="dz-sub">albo użyj przycisku <b>Wybierz plik</b> po prawej</div>
                 <div class="dz-formats">WAV &middot; MP3 &middot; Opus &middot; OGG &middot; FLAC &middot; M4A &middot; WebM</div>
-                <div class="dz-formats">z 2D Audio Explorera możesz dorzucić plik <b>_SCENA.json</b> &mdash; nazwane punkty na kuli</div>
+                <div class="dz-formats">ze Sceny możesz dorzucić plik <b>_SCENA.json</b> &mdash; nazwane punkty na kuli</div>
             </div>
 
             <!-- Stały pasek: legenda + sterowanie. Nic tu nie gaśnie. -->
@@ -663,7 +664,7 @@
                     Plik możesz też przeciągnąć myszą na wizualizację po lewej. Nic nie wysyłamy na serwer &mdash;
                     wszystko dzieje się w Twojej przeglądarce.
                     <br><br>
-                    Jeśli scena pochodzi z <b>2D Audio Explorera</b>, wybierz (albo upuść) razem z nagraniem
+                    Jeśli scena pochodzi ze <b>Sceny</b>, wybierz (albo upuść) razem z nagraniem
                     towarzyszący plik <b>_SCENA.json</b>. Na kuli zapalą się wtedy <b>nazwane punkty</b> w miejscach
                     poszczególnych dźwięków, pulsujące w rytm głośności każdego z nich. Podpis jedzie razem
                     z punktem i domyślnie zapala się dopiero wtedy, gdy dany dźwięk jest przed Tobą &mdash;
@@ -795,7 +796,7 @@
                             aria-label="Pomoc: nazwy obiektów" onclick="toggleHelp(this, 'helpObjects')">?</button>
                 </div>
                 <div class="help hidden" id="helpObjects">
-                    Punkty na kuli to nazwane źródła dźwięku z Twojej sceny w <b>2D Audio Explorerze</b>,
+                    Punkty na kuli to nazwane źródła dźwięku z Twojej sceny w <b>Scenie</b>,
                     a każdy pulsuje w rytm głośności swojego nagrania. Podpis jedzie razem z punktem, tak jak
                     litery kierunków <b>F</b>, <b>L</b>, <b>R</b>. Domyślnie zapala się dopiero wtedy, gdy
                     dany dźwięk znajdzie się <b>przed Tobą</b> &mdash; i gaśnie płynnie, gdy odjeżdża w bok.
@@ -897,7 +898,7 @@
 
     <!-- Stopka -->
     <footer class="tool-footer">
-        <span>Spatial Audio Lab &middot; Ambisonic Web Player</span>
+        <span>Spatial Audio Lab &middot; Sfera</span>
         <a href="/">&larr; Wróć do strony głównej</a>
     </footer>
 
@@ -1005,7 +1006,7 @@
             objectUrl: null, volume: 1,
             hasFile: false, lastFile: null, lastWasDemo: false, recTimer: null,
 
-            // --- Nazwane obiekty sceny z pliku _SCENA.json (2D Audio Explorer) ---
+            // --- Nazwane obiekty sceny z pliku _SCENA.json (Scena) ---
             // sceneObjects: gotowe do rysowania punkty — kierunek już przeliczony na wektor
             // wizualizacji, obwiednia głośności rozpakowana do Float32Array 0..1.
             // Pusta tablica = plik META nie został wczytany i nic dodatkowego się nie rysuje.
@@ -1832,7 +1833,7 @@
         }
 
         // ===========================================
-        // OPIS SCENY — plik _SCENA.json z 2D Audio Explorera
+        // OPIS SCENY — plik _SCENA.json z Sceny
         // ===========================================
         // Po co: sam AmbiX niesie kierunki, ale nie niesie NAZW. Eksporter dokłada obok WAV-a
         // plik JSON z nazwami źródeł, ich azymutem/elewacją (tymi samymi, którymi je zakodował)
@@ -1926,7 +1927,7 @@
 
         function applySceneMeta(data, fileName) {
             if (!data || !Array.isArray(data.objects)) {
-                updateStatus('Plik ' + fileName + ' nie wygląda na opis sceny z 2D Audio Explorera.', 'error');
+                updateStatus('Plik ' + fileName + ' nie wygląda na opis sceny ze Sceny.', 'error');
                 return;
             }
             const objs = [];
@@ -2041,7 +2042,7 @@
             if (!('mediaSession' in navigator)) return;
             try {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: title, artist: 'Spatial Audio Lab', album: 'Ambisonic Web Player'
+                    title: title, artist: 'Spatial Audio Lab', album: 'Spatial Audio Lab · Sfera'
                 });
                 navigator.mediaSession.setActionHandler('play', () => playAudio());
                 navigator.mediaSession.setActionHandler('pause', () => pauseAudio());
