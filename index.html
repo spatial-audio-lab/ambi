@@ -322,6 +322,22 @@
         text-decoration: underline; text-underline-offset: 3px;
     }
 
+    /* --- Test orientacji: sekwencja kierunków i odczyt bieżącego kroku --- */
+    #testBody { margin-top: 14px; }
+    .test-lead {
+        font-family: var(--mono); font-size: 0.68rem; color: var(--dim);
+        line-height: 1.6; margin-bottom: 16px;
+    }
+    .test-seq { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-top: 16px; }
+    .test-seq i { display: block; height: 3px; background: var(--border2); }
+    .test-seq i.on { background: var(--cyan); }
+    .test-step {
+        font-family: var(--mono); font-weight: 400; font-size: 0.95rem;
+        letter-spacing: 0.06em; color: var(--cyan);
+        min-height: 24px; margin-top: 10px;
+    }
+    .test-step.idle { color: var(--dim); }
+
     /* Ukryty wizualnie natywny input pliku — obsługujemy go własnym przyciskiem */
     .sr-only {
         position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -711,7 +727,8 @@
                     </div>
                 </div>
                 <div class="help hidden" id="helpRotation">
-                    Obracasz całą scenę wokół nieruchomej głowy &mdash; tak jakbyś rozglądał się w nagraniu.
+                    Obracasz całą scenę wokół nieruchomej głowy &mdash; tak, jakbyś chwycił kulę i nią obrócił.
+                    Dźwięk idzie dokładnie tam, gdzie jedzie punkt na kuli: w prawo znaczy w prawo.
                     <b>Yaw</b> to obrót w lewo i prawo, <b>Pitch</b> góra i dół, <b>Roll</b> przechylenie głowy.
                     <b>Żyroskop</b> steruje polem z czujnika telefonu, <b>Auto</b> obraca scenę wolno w kółko.
                     Działa tylko dla plików 4-kanałowych.
@@ -798,6 +815,49 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 5. TEST ORIENTACJI — zwinięty; sprawdza cały tor bez pliku -->
+            <div class="panel">
+                <button class="disclosure" id="testToggle" aria-expanded="false" aria-controls="testBody"
+                        onclick="toggleOrientTest()">
+                    <span class="panel-title">Test orientacji</span>
+                    <span class="disc-sum" id="testSummary">sprawdź kierunki</span>
+                    <span class="disc-caret" id="testCaret">+</span>
+                </button>
+                <div class="hidden" id="testBody">
+                    <div class="test-lead">
+                        Odtwarza impulsy szumu zakodowane kolejno na sześć kierunków. Jeśli słyszysz je tam,
+                        gdzie mówi napis i gdzie zapala się punkt na kuli &mdash; osie, znaki i dekoder działają
+                        poprawnie. Nie potrzebuje pliku. Rotacja pola zostanie wyzerowana na czas testu.
+                    </div>
+
+                    <div class="fmt-label">Rząd pola</div>
+                    <div class="seg">
+                        <button class="mode-btn active" data-ord="1" aria-pressed="true"
+                                onclick="setTestOrder(1)">1. &middot; 4 kan.</button>
+                        <button class="mode-btn" data-ord="2" aria-pressed="false"
+                                onclick="setTestOrder(2)">2. &middot; 9 kan.</button>
+                        <button class="mode-btn" data-ord="3" aria-pressed="false"
+                                onclick="setTestOrder(3)">3. &middot; 16 kan.</button>
+                    </div>
+
+                    <button class="btn btn-secondary" id="testRunBtn" style="width:100%; margin-top:16px;"
+                            onclick="toggleOrientationTest()">Uruchom test</button>
+
+                    <div class="test-seq" id="testSeq" aria-hidden="true">
+                        <i></i><i></i><i></i><i></i><i></i><i></i>
+                    </div>
+                    <div class="test-step idle" id="testStep" role="status" aria-live="polite">
+                        gotowy
+                    </div>
+
+                    <div class="fmt-hint">
+                        Wyższy rząd zawęża źródło &mdash; przy 3. rzędzie kierunki powinny być wyraźnie
+                        ostrzejsze niż przy 1. To jedyny sposób, by odsłuchać ścieżkę HOA bez nagrania
+                        9- lub 16-kanałowego. Test zawsze koduje w AmbiX; wybór FuMa wraca po zakończeniu.
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -817,12 +877,18 @@
         // ===========================================
         // DYNAMIC OMNITONE LOADER WITH FALLBACKS
         // ===========================================
+        // Wersja PRZYPIĘTA celowo: korekta obrotu HOA (ensureHoaYawFix) jest skalibrowana
+        // pod zachowanie HOARotatora z Omnitone 1.3.0. Gdyby kiedyś wyszła wersja z poprawką
+        // po stronie biblioteki, korekta stałaby się szkodliwa — dlatego nie ładujemy
+        // ślepo najnowszej. Weryfikacja po każdej zmianie: panel Test orientacji, 3. rząd.
+        // Uwaga: wersja 1.3.1 nigdy nie została opublikowana w npm (ostatnia to 1.3.0),
+        // więc poprzednie adresy z @1.3.1 na jsdelivr i unpkg były martwe.
         const OMNITONE_SOURCES = [
+            'https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js',
+            'https://unpkg.com/omnitone@1.3.0/build/omnitone.min.js',
             'https://cdn.jsdelivr.net/npm/omnitone/build/omnitone.min.js',
-            'https://cdn.jsdelivr.net/npm/omnitone@1.3.1/build/omnitone.min.js',
             'https://unpkg.com/omnitone/build/omnitone.min.js',
-            'https://unpkg.com/omnitone@1.3.1/build/omnitone.min.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/omnitone/1.3.1/omnitone.min.js'
+            'https://cdnjs.cloudflare.com/ajax/libs/omnitone/1.3.0/omnitone.min.js'
         ];
         let omnitoneLoadAttempt = 0;
         let omnitoneLoaded = false;
@@ -877,6 +943,9 @@
             // Konwersja FuMa -> AmbiX siedzi w grafie audio, więc przełącza się w trakcie grania.
             ambiFormat: 'ambix', fmtSplitter: null, fmtGains: [], fmtMerger: null,
 
+            // --- Korekta obrotu HOA (błąd w Omnitone, patrz ensureHoaYawFix) ---
+            hoaFix: null,
+
             // --- CO odtwarzamy ---
             // 'foa'      = sygnał ambisoniczny (FOA lub HOA) -> dekoder Omnitone + rotacja pola
             // 'binaural' = 2-kanałowy sygnał gotowy na słuchawki -> prosto na wyjście
@@ -889,6 +958,11 @@
             engine: 'buffer',
             // wybór użytkownika w panelu Źródło: 'auto' | 'foa' | 'binaural'
             sourceMode: 'auto',
+
+            // --- Test orientacji: własne źródło, niezależne od transportu pliku ---
+            // testDir trzyma kierunek bieżącego impulsu (konwencja wizualizacji) albo null.
+            testOrder: 1, testSource: null, testStartAt: 0, testDir: null,
+            testPrevFormat: null, testPrevOrder: null,
 
             mediaEl: null, mediaSource: null, binGain: null,
             splitter: null, analyserL: null, analyserR: null, meterBuf: null,
@@ -1010,6 +1084,7 @@
             // szedłby przez dwa renderery naraz i sumował się na wyjściu.
             try { state.gainNode.disconnect(state.fmtSplitter); } catch (e) {}
             try { state.fmtMerger.disconnect(); } catch (e) {}
+            disconnectHoaYawFix();
             if (state.foaRenderer) {
                 try { state.gainNode.disconnect(state.foaRenderer.input); } catch (e) {}
                 try { state.foaRenderer.output.disconnect(); } catch (e) {}
@@ -1026,7 +1101,11 @@
                 state.gainNode.connect(state.fmtSplitter);
                 state.fmtMerger.connect(renderer.input);
             } else {
-                state.gainNode.connect(renderer.input);
+                // HOA idzie przez korektę obrotu — bez niej Omnitone zamienia lewo z prawem
+                // i przód z tyłem. FOA korekty NIE potrzebuje (FOARotator jest poprawny).
+                const fix = ensureHoaYawFix(order);
+                state.gainNode.connect(fix.splitter);
+                fix.merger.connect(renderer.input);
             }
             renderer.output.connect(state.masterGain);
 
@@ -1034,6 +1113,47 @@
             state.rendererOrder = order;
             applyRotation();
             return renderer;
+        }
+
+        // ===========================================
+        // KOREKTA OBROTU HOA — obejście błędu w Omnitone 1.3.0
+        // ===========================================
+        // Omnitone ma dwa rotatory i tylko jeden z nich robi konwersję układu współrzędnych
+        // poprawnie. FOARotator mnoży dwustronnie (wzmocnienia -1 na wejściu Y i X ORAZ na
+        // wyjściu), więc przy macierzy jednostkowej wychodzi identyczność. HOARotator neguje
+        // te same elementy tylko RAZ, w samych współczynnikach macierzy. Skutek: nawet przy
+        // zerowej rotacji pierwszy rząd dostaje diag(-1, +1, -1), czyli całe pole jest
+        // obrócone o 180° wokół pionu — lewo z prawem i przód z tyłem zamienione. Wyższe
+        // rzędy są liczone z tego samego bloku, więc dziedziczą ten obrót.
+        // Zmierzone: FOA gra poprawnie, HOA 2. i 3. rzędu odwrotnie (pomiar w dokumentacji).
+        //
+        // Kasujemy to obrotem o 180° wokół pionu na WEJŚCIU renderera. Obrót o π wokół pionu
+        // neguje wszystkie składowe o nieparzystym m, a ponieważ ACN = l² + l + m, a l² + l
+        // jest zawsze parzyste, indeks ACN ma tę samą parzystość co m. Wystarczy więc odwrócić
+        // znak wszystkich NIEPARZYSTYCH kanałów ACN. Korekta jest dokładna dla każdego rzędu
+        // i dla dowolnej rotacji użytkownika, bo obroty wokół tej samej osi są przemienne.
+        function ensureHoaYawFix(order) {
+            const nCh = (order + 1) * (order + 1);
+            if (state.hoaFix && state.hoaFix.channels === nCh) return state.hoaFix;
+            const ctx = state.audioContext;
+            const splitter = ctx.createChannelSplitter(nCh);
+            const merger = ctx.createChannelMerger(nCh);
+            const gains = [];
+            for (let c = 0; c < nCh; c++) {
+                const g = ctx.createGain();
+                g.gain.value = (c % 2 === 0) ? 1 : -1;
+                splitter.connect(g, c);
+                g.connect(merger, 0, c);
+                gains.push(g);
+            }
+            state.hoaFix = { channels: nCh, splitter: splitter, merger: merger, gains: gains };
+            return state.hoaFix;
+        }
+
+        function disconnectHoaYawFix() {
+            if (!state.hoaFix) return;
+            try { state.gainNode.disconnect(state.hoaFix.splitter); } catch (e) {}
+            try { state.hoaFix.merger.disconnect(); } catch (e) {}
         }
 
         // Przepina 4 kanały wejściowe: AmbiX zostawia bez zmian, FuMa przestawia na ACN.
@@ -1085,6 +1205,250 @@
                 btn.classList.toggle('active', btn.dataset.fmt === state.ambiFormat);
                 btn.setAttribute('aria-pressed', btn.dataset.fmt === state.ambiFormat ? 'true' : 'false');
             });
+        }
+
+        // ===========================================
+        // TEST ORIENTACJI — sześć kierunków, bez pliku
+        // ===========================================
+        // Po co: sprawdza CAŁY tor naraz (kodowanie -> trasowanie -> renderer -> rotacja -> HRTF).
+        // Pole ambisoniczne generujemy sami, więc kierunek jest znany co do stopnia — jeśli
+        // impuls słychać gdzie indziej niż mówi napis, błąd jest w torze, nie w nagraniu.
+        // Przy okazji: to jedyny sposób, żeby odsłuchać ścieżkę HOA bez pliku 9-/16-kanałowego.
+
+        // Azymut liczony przeciwnie do wskazówek zegara od przodu (dodatni = w lewo),
+        // elewacja dodatnia = w górę — konwencja ambisoniczna ACN/SN3D.
+        // Wektor v jest w konwencji WIZUALIZACJI (x = prawo, y = góra, z = przód) i służy
+        // wyłącznie do zapalenia punktu na kuli.
+        const TEST_DIRS = [
+            { name: 'PRZÓD', az: 0,   el: 0,   v: { x: 0,  y: 0,  z: 1 } },
+            { name: 'LEWO',  az: 90,  el: 0,   v: { x: -1, y: 0,  z: 0 } },
+            { name: 'PRAWO', az: -90, el: 0,   v: { x: 1,  y: 0,  z: 0 } },
+            { name: 'TYŁ',   az: 180, el: 0,   v: { x: 0,  y: 0,  z: -1 } },
+            { name: 'GÓRA',  az: 0,   el: 90,  v: { x: 0,  y: 1,  z: 0 } },
+            { name: 'DÓŁ',   az: 0,   el: -90, v: { x: 0,  y: -1, z: 0 } }
+        ];
+        const TEST_BURST = 0.7;          // s — impuls
+        const TEST_GAP = 0.35;           // s — cisza między kierunkami
+        const TEST_SEG = TEST_BURST + TEST_GAP;
+        const TEST_AMP = 0.22;           // z zapasem pod limiter, HOA wychodzi głośniej niż FOA
+
+        // Harmoniki sferyczne ACN/SN3D do 3. rzędu. Konwencja ambisoniczna: x = przód,
+        // y = lewo, z = góra. Zwraca (order+1)^2 wzmocnień — po jednym na kanał.
+        function shAcnSn3d(azDeg, elDeg, order) {
+            const az = azDeg * Math.PI / 180, el = elDeg * Math.PI / 180;
+            const ce = Math.cos(el);
+            const x = ce * Math.cos(az), y = ce * Math.sin(az), z = Math.sin(el);
+            const g = [1];
+            if (order >= 1) { g.push(y, z, x); }
+            if (order >= 2) {
+                g.push(
+                    Math.sqrt(3) * x * y,
+                    Math.sqrt(3) * y * z,
+                    (3 * z * z - 1) / 2,
+                    Math.sqrt(3) * x * z,
+                    Math.sqrt(3) * (x * x - y * y) / 2
+                );
+            }
+            if (order >= 3) {
+                g.push(
+                    Math.sqrt(5 / 8) * y * (3 * x * x - y * y),
+                    Math.sqrt(15) * x * y * z,
+                    Math.sqrt(3 / 8) * y * (5 * z * z - 1),
+                    z * (5 * z * z - 3) / 2,
+                    Math.sqrt(3 / 8) * x * (5 * z * z - 1),
+                    Math.sqrt(15) * z * (x * x - y * y) / 2,
+                    Math.sqrt(5 / 8) * x * (x * x - 3 * y * y)
+                );
+            }
+            return g;
+        }
+
+        // Różowy szum (filtr Paula Kelleta) — pasmo szerokie, więc lokalizacja działa też
+        // w pionie; ton o wąskim paśmie nie nadaje się do sprawdzania osi góra/dół.
+        function makePinkNoise(n) {
+            const out = new Float32Array(n);
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            for (let i = 0; i < n; i++) {
+                const w = Math.random() * 2 - 1;
+                b0 = 0.99886 * b0 + w * 0.0555179;
+                b1 = 0.99332 * b1 + w * 0.0750759;
+                b2 = 0.96900 * b2 + w * 0.1538520;
+                b3 = 0.86650 * b3 + w * 0.3104856;
+                b4 = 0.55000 * b4 + w * 0.5329522;
+                b5 = -0.7616 * b5 - w * 0.0168980;
+                out[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+                b6 = w * 0.115926;
+            }
+            return out;
+        }
+
+        // Jeden bufor na całą sekwencję. Ten sam impuls dla każdego kierunku — różnicę
+        // robi wyłącznie kodowanie, więc porównanie jest uczciwe.
+        function buildOrientationTestBuffer(order) {
+            const ctx = state.audioContext;
+            const sr = ctx.sampleRate;
+            const nCh = (order + 1) * (order + 1);
+            const segN = Math.round(TEST_SEG * sr);
+            const burstN = Math.round(TEST_BURST * sr);
+            const buf = ctx.createBuffer(nCh, segN * TEST_DIRS.length, sr);
+            const noise = makePinkNoise(burstN);
+
+            // 6 ms obwiedni z obu stron — bez tego każdy impuls zaczyna się trzaskiem,
+            // a trzask lokalizuje się inaczej niż szum i psuje cały test.
+            const fade = Math.round(0.006 * sr);
+            for (let i = 0; i < fade; i++) {
+                const k = i / fade;
+                noise[i] *= k;
+                noise[burstN - 1 - i] *= k;
+            }
+
+            TEST_DIRS.forEach((d, si) => {
+                const g = shAcnSn3d(d.az, d.el, order);
+                const off = si * segN;
+                for (let c = 0; c < nCh; c++) {
+                    if (Math.abs(g[c]) < 1e-9) continue;
+                    const data = buf.getChannelData(c);
+                    const gain = g[c] * TEST_AMP;
+                    for (let i = 0; i < burstN; i++) { data[off + i] = noise[i] * gain; }
+                }
+            });
+            return buf;
+        }
+
+        function setTestOrder(order) {
+            if (state.testSource) return;             // w trakcie testu rząd jest zamrożony
+            state.testOrder = order;
+            document.querySelectorAll('#testBody .seg .mode-btn').forEach(btn => {
+                const on = parseInt(btn.dataset.ord, 10) === order;
+                btn.classList.toggle('active', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            syncTestSummary();
+        }
+
+        function syncTestSummary() {
+            const el = document.getElementById('testSummary');
+            if (!el) return;
+            el.textContent = state.testSource
+                ? 'w trakcie · ' + ambiLabel(state.testOrder, false)
+                : 'sprawdź kierunki';
+        }
+
+        function setTestStep(text, idle) {
+            const el = document.getElementById('testStep');
+            if (!el) return;
+            el.textContent = text;
+            el.classList.toggle('idle', !!idle);
+        }
+
+        function markTestSeq(index) {
+            document.querySelectorAll('#testSeq i').forEach((el, i) => {
+                el.classList.toggle('on', i === index);
+            });
+        }
+
+        function setTestButton(running) {
+            const btn = document.getElementById('testRunBtn');
+            if (!btn) return;
+            btn.textContent = running ? 'Zatrzymaj test' : 'Uruchom test';
+            btn.classList.toggle('btn-primary', running);
+            btn.classList.toggle('btn-secondary', !running);
+            document.querySelectorAll('#testBody .seg .mode-btn').forEach(b => { b.disabled = running; });
+            // Zaproszenie do wczytania pliku zasłaniałoby kulę w trakcie testu.
+            document.getElementById('dropzone').classList.toggle('hidden', running || state.hasFile);
+            syncTestSummary();
+        }
+
+        let testTicker = null;
+        function startTestTicker() {
+            stopTestTicker();
+            testTicker = setInterval(() => {
+                if (!state.testSource) return;
+                const t = state.audioContext.currentTime - state.testStartAt;
+                const i = Math.floor(t / TEST_SEG);
+                if (i < 0 || i >= TEST_DIRS.length) return;
+                const d = TEST_DIRS[i];
+                markTestSeq(i);
+                setTestStep((i + 1) + ' / ' + TEST_DIRS.length + ' · ' + d.name, false);
+                // punkt na kuli gaśnie razem z impulsem, w ciszy nic nie świeci
+                state.testDir = (t - i * TEST_SEG) < TEST_BURST ? d.v : null;
+            }, 40);
+        }
+        function stopTestTicker() {
+            if (testTicker) { clearInterval(testTicker); testTicker = null; }
+        }
+
+        function toggleOrientationTest() {
+            if (state.testSource) { stopOrientationTest(true); return; }
+            startOrientationTest();
+        }
+
+        async function startOrientationTest() {
+            const btn = document.getElementById('testRunBtn');
+            btn.disabled = true;
+            try {
+                await initializeAudioContext();
+                if (!state.isOmnitoneReady) {
+                    setTestStep('dekoder ambisoniczny niedostępny', true);
+                    return;
+                }
+                stopAudio();                                   // plik i test nigdy nie grają razem
+
+                // Test jest wzorcem, więc idzie zawsze w AmbiX — wybór FuMa wraca po zakończeniu.
+                state.testPrevFormat = state.ambiFormat;
+                if (state.ambiFormat !== 'ambix') { applyFormatRouting('ambix'); syncFormatRow(); }
+
+                // Obrócone pole unieważniłoby test — napis mówiłby PRZÓD, a impuls szedłby z boku.
+                state.rotationX = 0; state.rotationY = 0; state.rotationZ = 0;
+                pushRotationToUI();
+
+                state.testPrevOrder = state.rendererOrder;
+                await ensureRenderer(state.testOrder);
+
+                const src = state.audioContext.createBufferSource();
+                src.buffer = buildOrientationTestBuffer(state.testOrder);
+                src.connect(state.gainNode);
+                src.onended = () => { if (state.testSource === src) { stopOrientationTest(false); } };
+
+                state.testSource = src;
+                state.testStartAt = state.audioContext.currentTime;
+                src.start();
+                setTestButton(true);
+                startTestTicker();
+                updateStatus('Test orientacji: ' + ambiLabel(state.testOrder, true) + '.', 'loading');
+            } catch (error) {
+                console.error('Orientation test error:', error);
+                stopOrientationTest(true);
+                setTestStep('nie udało się uruchomić testu', true);
+                updateStatus('Test orientacji: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function stopOrientationTest(userStopped) {
+            if (state.testSource) {
+                try { state.testSource.stop(); } catch (e) {}
+                try { state.testSource.disconnect(); } catch (e) {}
+                state.testSource = null;
+            }
+            stopTestTicker();
+            state.testDir = null;
+            markTestSeq(-1);
+            setTestButton(false);
+            setTestStep(userStopped ? 'zatrzymany' : 'zakończony', true);
+
+            if (state.testPrevFormat && state.testPrevFormat !== state.ambiFormat) {
+                applyFormatRouting(state.testPrevFormat);
+                syncFormatRow();
+            }
+            state.testPrevFormat = null;
+
+            // Renderer wraca do rzędu wczytanego pliku — inaczej po teście 3. rzędu
+            // plik 4-kanałowy trafiłby do renderera HOA.
+            const back = (state.hasFile && state.mode === 'foa') ? state.ambiOrder : state.testPrevOrder;
+            state.testPrevOrder = null;
+            if (back && back !== state.rendererOrder) { ensureRenderer(back).catch(() => {}); }
         }
 
         // ===========================================
@@ -1869,6 +2233,15 @@
             document.getElementById('detailsCaret').textContent = nowHidden ? '+' : '\u2212';
         }
 
+        // --- Zwijana sekcja Test orientacji ---
+        function toggleOrientTest() {
+            const body = document.getElementById('testBody');
+            const btn = document.getElementById('testToggle');
+            const nowHidden = body.classList.toggle('hidden');
+            btn.setAttribute('aria-expanded', nowHidden ? 'false' : 'true');
+            document.getElementById('testCaret').textContent = nowHidden ? '+' : '\u2212';
+        }
+
         const ROT_LABELS = { manual: 'Ręczna', gyroscope: 'Żyroskop', auto: 'Auto' };
 
         // Przełącza cały interfejs między AmbiX FOA a binauralnym.
@@ -2000,10 +2373,21 @@
             document.getElementById('hudRoll').textContent = sgn(state.rotationZ);
         }
 
+        // ZNAK YAW I PITCH: kula i dźwięk muszą obracać się w tę samą stronę.
+        // Zmierzone: operator, który tor audio nakłada na pole, był lustrzanym odbiciem
+        // (przez oś przód/tył) tego, co robi `fieldTf` w wizualizacji — yaw i pitch szły
+        // w przeciwne strony, roll zgadzał się. Objaw: przeciągasz kulę w lewo, węzeł F
+        // jedzie w lewo, a dźwięk ucieka w prawe ucho.
+        // Wygrywa kula, bo to ona jest tym, na co użytkownik patrzy, i bo przy niej
+        // przeciąganie działa jak chwytanie obiektu: w prawo = w prawo. Konsekwencja:
+        // dodatni yaw oznacza u nas obrót pola w PRAWO, czyli odwrotnie niż dodatni azymut
+        // w konwencji ambisonicznej. To wyłącznie znak liczby na suwaku — bezwzględne
+        // kierunki dekodowania są nietknięte (Test orientacji przy zerowej rotacji).
+        // UWAGA: odwzorowanie żyroskopu w onDeviceOrientation jest sprzężone z tym znakiem.
         function applyRotation() {
             if (!state.foaRenderer || !state.isOmnitoneReady) return;
-            const xRad = THREE.MathUtils.degToRad(state.rotationX);
-            const yRad = THREE.MathUtils.degToRad(state.rotationY);
+            const xRad = THREE.MathUtils.degToRad(-state.rotationX);
+            const yRad = THREE.MathUtils.degToRad(-state.rotationY);
             const zRad = THREE.MathUtils.degToRad(state.rotationZ);
             const euler = new THREE.Euler(xRad, yRad, zRad, 'YXZ');
             const quaternion = new THREE.Quaternion().setFromEuler(euler);
@@ -2050,8 +2434,12 @@
             const od = document.getElementById('orientationDisplay');
             od.textContent =
                 'Alpha: ' + Math.round(alpha) + '° | Beta: ' + Math.round(beta) + '° | Gamma: ' + Math.round(gamma) + '°';
-            let yaw = -alpha; if (yaw < -180) { yaw += 360; }
-            let pitch = Math.max(-90, Math.min(90, -beta));
+            // Znaki sprzężone z applyRotation: po naprawie zgodności kuli i dźwięku
+            // dodatni yaw obraca pole w prawo, więc obrót głowy w lewo (rosnąca alfa)
+            // musi dawać dodatni yaw. Zachowanie samego dźwięku jest takie jak wcześniej —
+            // zmieniła się tylko kula, która teraz podąża za dźwiękiem.
+            let yaw = alpha; if (yaw > 180) { yaw -= 360; }
+            let pitch = Math.max(-90, Math.min(90, beta));
             let roll = Math.max(-180, Math.min(180, gamma));
             state.rotationX = pitch; state.rotationY = yaw; state.rotationZ = roll;
             document.getElementById('rotationY').value = Math.round(yaw);
@@ -2179,8 +2567,12 @@
             ctx.fillStyle = g;
             ctx.fillRect(0, 0, field.w, field.h);
 
-            const bin = state.mode === 'binaural';
-            const dim = state.hasFile ? 1 : 0.45;   // stan pusty: wizualizacja wycofana
+            // Test orientacji rysuje pełne pole nawet bez wczytanego pliku — punkt kierunku
+            // musi mieć obok siebie węzły i głowę, inaczej nie ma go z czym porównać.
+            // Test jest ambisoniczny także wtedy, gdy wczytany plik jest binauralny.
+            const testing = !!state.testSource;
+            const bin = state.mode === 'binaural' && !testing;
+            const dim = (state.hasFile || testing) ? 1 : 0.45;   // stan pusty: wizualizacja wycofana
             // Binaural: pole nie istnieje jako obiekt do obracania — zostaje sama oś uszu.
             const nodes = bin ? CARD.filter(n => n.t === 'L' || n.t === 'R') : CARD;
 
@@ -2201,7 +2593,7 @@
 
             // Bez pliku zostaje sama siatka — słuchacz i węzły pojawiają się dopiero z dźwiękiem,
             // żeby zaproszenie do wczytania miało czyste tło.
-            if (!state.hasFile) { return; }
+            if (!state.hasFile && !testing) { return; }
 
             // węzły pola z DALSZEJ półkuli (za słuchaczem) — rysowane najpierw
             const farNodes = nodes.filter(n => projField(n.v).z > 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
@@ -2272,6 +2664,21 @@
             // węzły pola z BLIŻSZEJ półkuli (przed słuchaczem, na wierzchu)
             const nearNodes = nodes.filter(n => projField(n.v).z <= 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
             nearNodes.forEach(drawNode);
+
+            // Test orientacji: punkt tam, skąd właśnie idzie impuls. Rysowany na samym
+            // wierzchu, pełną jasnością — także w stanie pustym, gdzie reszta jest wygaszona.
+            if (state.testDir) {
+                const tp = projField(state.testDir);
+                const pulse = 1 + 0.18 * Math.sin(performance.now() / 90);
+                const r = 7 * tp.s * pulse;
+                ctx.save();
+                ctx.shadowColor = 'rgba(0,229,204,0.9)'; ctx.shadowBlur = 18;
+                ctx.fillStyle = '#00E5CC';
+                ctx.beginPath(); ctx.arc(tp.x, tp.y, r, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+                ctx.strokeStyle = 'rgba(0,229,204,0.45)'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(tp.x, tp.y, r * 2.4, 0, Math.PI * 2); ctx.stroke();
+            }
 
         }
 
