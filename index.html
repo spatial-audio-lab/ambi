@@ -632,6 +632,7 @@
                 <div class="dz-title">Upuść tutaj plik audio</div>
                 <div class="dz-sub">albo użyj przycisku <b>Wybierz plik</b> po prawej</div>
                 <div class="dz-formats">WAV &middot; MP3 &middot; Opus &middot; OGG &middot; FLAC &middot; M4A &middot; WebM</div>
+                <div class="dz-formats">z 2D Audio Explorera możesz dorzucić plik <b>_SCENA.json</b> &mdash; nazwane punkty na kuli</div>
             </div>
 
             <!-- Stały pasek: legenda + sterowanie. Nic tu nie gaśnie. -->
@@ -661,14 +662,20 @@
                     bo kierunki są już w nich zapisane. Obsługiwane: WAV, MP3, OGG, Opus, FLAC, M4A, AAC, WebM.
                     Plik możesz też przeciągnąć myszą na wizualizację po lewej. Nic nie wysyłamy na serwer &mdash;
                     wszystko dzieje się w Twojej przeglądarce.
+                    <br><br>
+                    Jeśli scena pochodzi z <b>2D Audio Explorera</b>, wybierz (albo upuść) razem z nagraniem
+                    towarzyszący plik <b>_SCENA.json</b>. Na kuli zapalą się wtedy <b>nazwane punkty</b> w miejscach
+                    poszczególnych dźwięków, pulsujące w rytm głośności każdego z nich. Podpis jedzie razem
+                    z punktem i domyślnie zapala się dopiero wtedy, gdy dany dźwięk jest przed Tobą &mdash;
+                    w panelu <b>Nazwy obiektów</b> możesz przełączyć go na stale widoczny albo wyłączyć.
                 </div>
 
                 <div class="btn-row">
                     <button class="btn btn-secondary" id="pickFileBtn" onclick="openFilePicker()">Wybierz plik</button>
                     <button class="btn btn-secondary" id="loadDemoBtn" onclick="loadDemoFile()">Demo: Pociąg</button>
                 </div>
-                <input type="file" id="fileInput" class="sr-only"
-                       accept=".wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac,.mp4,.webm,.weba,audio/*"
+                <input type="file" id="fileInput" class="sr-only" multiple
+                       accept=".wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac,.mp4,.webm,.weba,.json,audio/*,application/json"
                        onchange="loadPickedFile()" />
 
                 <div class="status" id="status" role="status" aria-live="polite">Gotów. Wybierz plik albo włącz demo.</div>
@@ -778,6 +785,33 @@
                 </div>
 
                 <div class="orient-display hidden" id="orientationDisplay">Alpha: 0&deg; &nbsp;|&nbsp; Beta: 0&deg; &nbsp;|&nbsp; Gamma: 0&deg;</div>
+            </div>
+
+            <!-- 3b. NAZWY OBIEKTÓW — pojawia się dopiero, gdy wczytano _SCENA.json -->
+            <div class="panel hidden" id="objectsSection">
+                <div class="panel-head">
+                    <h2 class="panel-title">Nazwy obiektów</h2>
+                    <button class="help-btn" aria-expanded="false" aria-controls="helpObjects"
+                            aria-label="Pomoc: nazwy obiektów" onclick="toggleHelp(this, 'helpObjects')">?</button>
+                </div>
+                <div class="help hidden" id="helpObjects">
+                    Punkty na kuli to nazwane źródła dźwięku z Twojej sceny w <b>2D Audio Explorerze</b>,
+                    a każdy pulsuje w rytm głośności swojego nagrania. Podpis jedzie razem z punktem, tak jak
+                    litery kierunków <b>F</b>, <b>L</b>, <b>R</b>. Domyślnie zapala się dopiero wtedy, gdy
+                    dany dźwięk znajdzie się <b>przed Tobą</b> &mdash; i gaśnie płynnie, gdy odjeżdża w bok.
+                </div>
+
+                <div class="fmt-label">Kiedy pokazywać podpisy</div>
+                <div class="seg">
+                    <button class="mode-btn active" data-lbl="front" aria-pressed="true"
+                            onclick="setLabelMode('front')">Z przodu</button>
+                    <button class="mode-btn" data-lbl="always" aria-pressed="false"
+                            onclick="setLabelMode('always')">Zawsze</button>
+                    <button class="mode-btn" data-lbl="never" aria-pressed="false"
+                            onclick="setLabelMode('never')">Nigdy</button>
+                </div>
+
+                <div class="fmt-hint" id="objectsHint">&mdash;</div>
             </div>
 
             <!-- 4. SZCZEGÓŁY — zwinięte, dla ciekawych i na awarie -->
@@ -969,7 +1003,15 @@
             foaSplitter: null, analyserW: null,
             meterL: 0, meterR: 0, meterW: 0,
             objectUrl: null, volume: 1,
-            hasFile: false, lastFile: null, lastWasDemo: false, recTimer: null
+            hasFile: false, lastFile: null, lastWasDemo: false, recTimer: null,
+
+            // --- Nazwane obiekty sceny z pliku _SCENA.json (2D Audio Explorer) ---
+            // sceneObjects: gotowe do rysowania punkty — kierunek już przeliczony na wektor
+            // wizualizacji, obwiednia głośności rozpakowana do Float32Array 0..1.
+            // Pusta tablica = plik META nie został wczytany i nic dodatkowego się nie rysuje.
+            // labelMode: 'front' = podpis tylko gdy obiekt jest przed słuchaczem (domyślnie),
+            //            'always' = podpis stale przy punkcie, 'never' = same punkty bez nazw.
+            sceneObjects: [], sceneName: null, sceneSkipped: 0, labelMode: 'front'
         };
 
         // ===========================================
@@ -1699,6 +1741,7 @@
             }
             state.lastFile = null;
             state.lastWasDemo = true;
+            clearSceneMeta();
             try {
                 await initializeAudioContext();
                 updateStatus('Pobieranie pliku demonstracyjnego...', 'loading');
@@ -1726,13 +1769,35 @@
         // Wybór pliku ładuje od razu — bez drugiego kliknięcia
         function loadPickedFile() {
             const input = document.getElementById('fileInput');
-            const file = input.files[0];
+            const files = Array.from(input.files || []);
             input.value = '';        // bez tego wybranie tego samego pliku drugi raz nie odpala 'change'
-            if (file) { loadFile(file); }
+            handleIncomingFiles(files);
+        }
+
+        // ===========================================
+        // WEJŚCIE: audio + opcjonalny opis sceny (_SCENA.json)
+        // ===========================================
+        // Jedna droga dla wyboru z okna i dla upuszczenia na wizualizację. Kolejność jest
+        // istotna: najpierw audio (czyści poprzednią scenę i ustawia tryb), potem META —
+        // dzięki temu ostatni komunikat statusu mówi o obiektach, a nie o samym pliku.
+        function isSceneMetaFile(f) {
+            return /\.json$/i.test(f.name) || f.type === 'application/json';
+        }
+        async function handleIncomingFiles(files) {
+            const list = Array.from(files || []);
+            if (!list.length) { updateStatus('Nie wybrano pliku.', 'error'); return; }
+            const metas = list.filter(isSceneMetaFile);
+            const audios = list.filter(f => !isSceneMetaFile(f));
+            if (audios.length) { await loadFile(audios[0]); }
+            for (const m of metas) { await loadSceneMeta(m); }
+            if (metas.length && !state.hasFile) {
+                updateStatus('Opis sceny wczytany. Dorzuć jeszcze plik AmbiX z tej samej sceny, żeby zobaczyć punkty na kuli.', '');
+            }
         }
 
         async function loadFile(file, keepMode) {
             if (!file) { updateStatus('Nie wybrano pliku.', 'error'); return; }
+            clearSceneMeta();        // nowy plik audio = stara scena przestaje obowiązywać
             if (!keepMode) { state.sourceMode = 'auto'; }   // wymuszenie dotyczy jednego pliku, nie na zawsze
             state.lastFile = file;
             state.lastWasDemo = false;
@@ -1763,6 +1828,137 @@
             } catch (error) {
                 console.error('Error loading file:', error);
                 updateStatus('Błąd: ' + error.message, 'error');
+            }
+        }
+
+        // ===========================================
+        // OPIS SCENY — plik _SCENA.json z 2D Audio Explorera
+        // ===========================================
+        // Po co: sam AmbiX niesie kierunki, ale nie niesie NAZW. Eksporter dokłada obok WAV-a
+        // plik JSON z nazwami źródeł, ich azymutem/elewacją (tymi samymi, którymi je zakodował)
+        // i obwiednią głośności każdego nagrania. Dzięki temu odtwarzacz może zapalić na kuli
+        // podpisane punkty pulsujące w rytm konkretnego dźwięku, a nie wspólnego miksu.
+        //
+        // Pozycje są zamrożone na moment eksportu (frozen: true) — ruch źródeł nie jest jeszcze
+        // utrwalany. Gdy będzie, az/el zamieni się w ścieżkę czasową i trzeba tu będzie dołożyć
+        // odpytywanie czasu także dla pozycji; obwiednia głośności już tak działa.
+
+        const LEVEL_DEFAULT_HZ = 50;
+        // Podpis: pełna widoczność do LABEL_FULL_DEG, kosinusowe zejście do zera przy LABEL_ZERO_DEG.
+        const LABEL_FULL_DEG = 12;
+        const LABEL_ZERO_DEG = 40;
+
+        // Konwencja ambisoniczna (azymut dodatni w LEWO, elewacja w GÓRĘ) -> wektor
+        // wizualizacji (x = prawo, y = góra, z = przód). Ta sama zamiana, co w TEST_DIRS.
+        function dirVectorFromAzEl(azDeg, elDeg) {
+            const az = azDeg * Math.PI / 180, el = elDeg * Math.PI / 180, ce = Math.cos(el);
+            return { x: -ce * Math.sin(az), y: Math.sin(el), z: ce * Math.cos(az) };
+        }
+
+        // uint8 w skali decybelowej -> 0..1. dbFloor z pliku, bo eksporter może go zmienić.
+        function unpackLevel(lv) {
+            if (!lv || !Array.isArray(lv.values) || !lv.values.length) { return null; }
+            const out = new Float32Array(lv.values.length);
+            for (let i = 0; i < out.length; i++) {
+                const v = Number(lv.values[i]);
+                out[i] = isFinite(v) ? Math.max(0, Math.min(1, v / 255)) : 0;
+            }
+            return { hz: (lv.hz > 0 ? lv.hz : LEVEL_DEFAULT_HZ), values: out };
+        }
+
+        // Polska odmiana liczebnika: 1 obiekt · 2 obiekty · 5 obiektów.
+        function plForm(n, one, few, many) {
+            const d = n % 10, s = n % 100;
+            if (n === 1) { return one; }
+            if (d >= 2 && d <= 4 && (s < 12 || s > 14)) { return few; }
+            return many;
+        }
+        function objectsCount(n) { return n + ' ' + plForm(n, 'obiekt', 'obiekty', 'obiektów'); }
+        function skippedNote(n) {
+            if (!n) { return ''; }
+            return ' · pominięto ' + n + ' ' +
+                plForm(n, 'źródło bezkierunkowe', 'źródła bezkierunkowe', 'źródeł bezkierunkowych');
+        }
+
+        function clearSceneMeta() {
+            state.sceneObjects = [];
+            state.sceneName = null;
+            state.sceneSkipped = 0;
+            syncObjectsPanel();
+        }
+
+        // Wybór użytkownika jest trwały na całą sesję — nie kasujemy go przy zmianie pliku.
+        function setLabelMode(mode) {
+            state.labelMode = mode;
+            document.querySelectorAll('#objectsSection .seg .mode-btn').forEach(btn => {
+                const on = btn.dataset.lbl === mode;
+                btn.classList.toggle('active', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            syncObjectsPanel();
+        }
+
+        function syncObjectsPanel() {
+            const sec = document.getElementById('objectsSection');
+            if (!sec) { return; }
+            const n = state.sceneObjects.length;
+            sec.classList.toggle('hidden', n === 0);
+            if (!n) { return; }
+            const skipped = skippedNote(state.sceneSkipped);
+            const tryb = state.labelMode === 'always'
+                ? 'Podpisy widoczne przy wszystkich punktach.'
+                : (state.labelMode === 'never'
+                    ? 'Same punkty, bez nazw.'
+                    : 'Nazwa zapala się, gdy dźwięk jest przed Tobą, i gaśnie płynnie do 40° od przodu.');
+            document.getElementById('objectsHint').textContent =
+                (state.sceneName ? state.sceneName + ' · ' : '') + objectsCount(n) + skipped + '. ' + tryb;
+        }
+
+        async function loadSceneMeta(file) {
+            try {
+                const text = await file.text();
+                applySceneMeta(JSON.parse(text), file.name);
+            } catch (error) {
+                console.error('Scene meta error:', error);
+                updateStatus('Nie udało się odczytać opisu sceny: ' + error.message, 'error');
+            }
+        }
+
+        function applySceneMeta(data, fileName) {
+            if (!data || !Array.isArray(data.objects)) {
+                updateStatus('Plik ' + fileName + ' nie wygląda na opis sceny z 2D Audio Explorera.', 'error');
+                return;
+            }
+            const objs = [];
+            let skipped = 0;
+            data.objects.forEach((o, i) => {
+                // Źródła w trybie Bezpośrednio nie mają kierunku w scenie — punkt na kuli
+                // byłby zmyśleniem, więc trafiają tylko do licznika pominiętych.
+                if (!o || o.routing === 'direct' || typeof o.az !== 'number' || typeof o.el !== 'number') {
+                    skipped++; return;
+                }
+                objs.push({
+                    name: String(o.name || ('Obiekt ' + (i + 1))).slice(0, 40),
+                    az: o.az, el: o.el,
+                    v: dirVectorFromAzEl(o.az, o.el),
+                    volume: (typeof o.volume === 'number') ? Math.max(0, Math.min(1, o.volume)) : 1,
+                    level: unpackLevel(o.level)
+                });
+            });
+            state.sceneObjects = objs;
+            state.sceneSkipped = skipped;
+            state.sceneName = (data.scene && data.scene.name) ? String(data.scene.name) : fileName;
+            syncObjectsPanel();
+
+            const extra = skippedNote(skipped);
+            if (!objs.length) {
+                updateStatus('Opis sceny bez obiektów kierunkowych' + extra + ' — nie ma czego zapalić na kuli.', '');
+            } else if (state.mode === 'binaural') {
+                updateStatus('Wczytano opis sceny: ' + objectsCount(objs.length) + extra +
+                             '. Punkty pokazują się przy plikach ambisonicznych — ten jest binauralny.', '');
+            } else {
+                updateStatus('Scena: ' + state.sceneName + ' · ' + objectsCount(objs.length) +
+                             ' na kuli' + extra + '.', 'success');
             }
         }
 
@@ -2143,8 +2339,9 @@
             screen.addEventListener('drop', (e) => {
                 stop(e);
                 screen.classList.remove('drag-over');
-                const f = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files[0] : null;
-                if (f) { loadFile(f); }
+                // Można upuścić oba pliki naraz: AmbiX + _SCENA.json z tej samej sceny.
+                const fs = e.dataTransfer && e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+                if (fs.length) { handleIncomingFiles(fs); }
             });
 
             // bez tego przeglądarka otworzy upuszczony plik zamiast strony
@@ -2556,6 +2753,110 @@
             ctx.closePath(); ctx.fill();
         }
 
+        // ===========================================
+        // NAZWANE OBIEKTY SCENY NA KULI
+        // ===========================================
+        // Odczyt obwiedni z interpolacją liniową między sąsiednimi oknami — bez niej punkt
+        // skakałby schodkami 50 razy na sekundę zamiast płynnie oddychać.
+        function sampleLevel(level, timeSec) {
+            if (!level) { return null; }
+            const x = timeSec * level.hz;
+            if (!isFinite(x) || x <= 0) { return level.values[0]; }
+            const last = level.values.length - 1;
+            const i = Math.floor(x);
+            if (i >= last) { return level.values[last]; }
+            const f = x - i;
+            return level.values[i] + (level.values[i + 1] - level.values[i]) * f;
+        }
+
+        // Jedno przeliczenie na klatkę — ta sama liczba obsługuje pozycję punktu i podpis.
+        function sceneObjectFrame() {
+            const out = [];
+            if (!state.sceneObjects.length || state.mode === 'binaural') { return out; }
+            const t = mediaCurrent();
+            for (const o of state.sceneObjects) {
+                const r = fieldTf(o.v);                 // pole się obraca, głowa stoi
+                // Przód słuchacza to stale +Z, więc kąt od przodu = acos(składowej Z).
+                const ang = Math.acos(Math.max(-1, Math.min(1, r.z))) / D2R;
+                out.push({ o: o, r: r, p: project(r), ang: ang, lvl: sampleLevel(o.level, t) });
+            }
+            return out;
+        }
+
+        function drawSceneDot(fr) {
+            const ctx = field.ctx;
+            const lvl = (fr.lvl === null) ? 0.55 : fr.lvl;      // brak obwiedni = punkt spokojny
+            const base = 0.4 + 0.6 * fr.o.volume;               // suwak głośności z Explorera
+            const r = (3.0 + 5.5 * lvl) * fr.p.s;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,229,204,' + (0.3 + 0.6 * lvl).toFixed(3) + ')';
+            ctx.shadowBlur = 6 + 16 * lvl;
+            ctx.fillStyle = 'rgba(0,229,204,' + ((0.35 + 0.65 * lvl) * base).toFixed(3) + ')';
+            ctx.beginPath(); ctx.arc(fr.p.x, fr.p.y, r, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            ctx.strokeStyle = 'rgba(0,229,204,' + ((0.10 + 0.28 * lvl) * base).toFixed(3) + ')';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.arc(fr.p.x, fr.p.y, r * (1.9 + 1.3 * lvl), 0, Math.PI * 2); ctx.stroke();
+        }
+
+        // Kosinusowe zanikanie: 1 do LABEL_FULL_DEG, gładko do 0 przy LABEL_ZERO_DEG.
+        function labelOpacity(angDeg) {
+            if (angDeg <= LABEL_FULL_DEG) { return 1; }
+            if (angDeg >= LABEL_ZERO_DEG) { return 0; }
+            const t = (angDeg - LABEL_FULL_DEG) / (LABEL_ZERO_DEG - LABEL_FULL_DEG);
+            return 0.5 + 0.5 * Math.cos(t * Math.PI);
+        }
+
+        // Krycie podpisu danego obiektu zależnie od trybu wybranego w panelu.
+        function sceneLabelAlpha(fr) {
+            if (state.labelMode === 'never') { return 0; }
+            if (state.labelMode === 'always') {
+                // Stałe podpisy: przygaszamy dalszą półkulę, tak samo jak litery kierunków,
+                // inaczej napisy zza pleców biją się o uwagę z tymi z przodu.
+                const near = (1 - fr.p.z) / 2;
+                return 0.4 + 0.55 * near;
+            }
+            return labelOpacity(fr.ang);
+        }
+
+        // Podpis jedzie RAZEM z punktem — tak jak litery F/L/R/B/U/D: odsunięty promieniście
+        // od środka kadru, żeby nie leżał na samym punkcie ani nie wchodził na kulę.
+        function drawSceneLabel(fr, a) {
+            const ctx = field.ctx;
+            const lvl = (fr.lvl === null) ? 0.55 : fr.lvl;
+            const r = (3.0 + 5.5 * lvl) * fr.p.s;
+            let dx = fr.p.x - field.cx, dy = fr.p.y - field.cy;
+            const len = Math.hypot(dx, dy);
+            if (len < 1) { dx = 0; dy = 1; } else { dx /= len; dy /= len; }
+            const off = r * 2.2 + 11;
+            let tx = fr.p.x + dx * off, ty = fr.p.y + dy * off;
+            ctx.save();
+            ctx.font = '600 12px Azeret Mono, monospace';
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = dx > 0.2 ? 'left' : (dx < -0.2 ? 'right' : 'center');
+            // Przy krawędzi kadru napis inaczej zostałby ucięty w pół słowa.
+            const w = ctx.measureText(fr.o.name).width;
+            const half = ctx.textAlign === 'center' ? w / 2 : (ctx.textAlign === 'left' ? 0 : w);
+            tx = Math.max(4 + half, Math.min(field.w - 4 - (w - half), tx));
+            ty = Math.max(12, Math.min(field.h - 10, ty));
+            ctx.shadowColor = 'rgba(10,12,8,0.95)'; ctx.shadowBlur = 7;
+            ctx.fillStyle = 'rgba(0,229,204,' + a.toFixed(3) + ')';
+            ctx.fillText(fr.o.name, tx, ty);
+            ctx.restore();
+        }
+
+        // Wszystkie podpisy po punktach, najbliższy przodowi rysowany na końcu (na wierzchu).
+        function drawSceneLabels(frames) {
+            const vis = [];
+            for (const fr of frames) {
+                const a = sceneLabelAlpha(fr);
+                if (a > 0.02) { vis.push({ fr: fr, a: a }); }
+            }
+            if (!vis.length) { return; }
+            vis.sort((x, y) => y.fr.ang - x.fr.ang);
+            for (const v of vis) { drawSceneLabel(v.fr, v.a); }
+        }
+
         function drawField() {
             const ctx = field.ctx;
             ctx.clearRect(0, 0, field.w, field.h);
@@ -2598,6 +2899,11 @@
             // węzły pola z DALSZEJ półkuli (za słuchaczem) — rysowane najpierw
             const farNodes = nodes.filter(n => projField(n.v).z > 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
             farNodes.forEach(drawNode);
+
+            // Nazwane obiekty sceny — ta sama kolejność głębi co węzły: dalsze przed głową,
+            // bliższe po niej, żeby głowa nie znikała pod punktem z tyłu.
+            const sceneFrames = sceneObjectFrame();
+            sceneFrames.filter(f => f.p.z > 0).sort((a, b) => b.p.z - a.p.z).forEach(drawSceneDot);
 
             // === SŁUCHACZ (NIERUCHOMY, widok zza głowy) — pole obraca się wokół niego ===
             // Osie słuchacza są stałe (project bez fieldTf): przód = góra, prawe ucho = prawo.
@@ -2664,6 +2970,9 @@
             // węzły pola z BLIŻSZEJ półkuli (przed słuchaczem, na wierzchu)
             const nearNodes = nodes.filter(n => projField(n.v).z <= 0).sort((a, b) => projField(b.v).z - projField(a.v).z);
             nearNodes.forEach(drawNode);
+
+            sceneFrames.filter(f => f.p.z <= 0).sort((a, b) => b.p.z - a.p.z).forEach(drawSceneDot);
+            drawSceneLabels(sceneFrames);
 
             // Test orientacji: punkt tam, skąd właśnie idzie impuls. Rysowany na samym
             // wierzchu, pełną jasnością — także w stanie pustym, gdzie reszta jest wygaszona.
