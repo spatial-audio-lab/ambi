@@ -63,39 +63,68 @@
         background: var(--black);
         border-bottom: 1px solid var(--border2);
     }
-    .tool-header-left { display: flex; align-items: center; gap: 0; }
+    /* Pasek marki SAL — wzorzec wspolny dla wszystkich narzedzi laboratorium:
+       [ikona SAL | <- SAL]  |  (dioda) NAZWA  opis        ...        status Audio Context
+       Ikona idzie z katalogu /assets/ Hubu: wszystkie aplikacje siedza pod tym samym
+       originem (spatial-audio-lab.github.io/<repo>/), wiec sciezka od roota trafia do
+       repozytorium portalu. Jedno miejsce aktualizacji, zero duplikatow binariow.
+       Podglad z dysku (file://) pokaze sam tekst alt — to swiadomy koszt. */
+    .tool-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .back-hub {
+        display: inline-flex; align-items: center; gap: 8px;
         font-family: var(--mono);
-        font-size: 0.72rem;
-        letter-spacing: 0.04em;
+        font-weight: 500;
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         color: var(--dim);
         text-decoration: none;
         border: 1px solid var(--border2);
-        padding: 8px 14px;
+        border-radius: 0;
+        padding: 0 12px;
+        min-height: 44px;
         transition: color .2s ease, border-color .2s ease;
         white-space: nowrap;
+        flex-shrink: 0;
     }
-    .back-hub:hover { color: var(--cream); border-color: var(--dim); }
+    .back-hub:hover { color: var(--cyan); border-color: var(--cyan); }
+    .back-hub img { width: 18px; height: 18px; display: block; flex-shrink: 0; }
+    .tool-sep { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
+    /* Dioda stanu przy nazwie — ten sam stan co napis Audio Context po prawej,
+       ale widoczna takze wtedy, gdy napis zniknie na waskim ekranie (manifest §12). */
+    .tool-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--dim); flex-shrink: 0;
+        transition: background .25s ease, box-shadow .25s ease;
+    }
+    .tool-header.running .tool-dot { background: var(--cyan); box-shadow: 0 0 8px rgba(0,229,204,0.6); }
     .tool-name {
         font-family: var(--display);
-        font-weight: 500;
-        font-size: 0.85rem;
-        margin-left: 16px;
-        padding-left: 16px;
-        border-left: 1px solid var(--border2);
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.01em;
+        color: var(--cream);
         white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .tool-desc {
+        font-family: var(--mono);
+        font-weight: 300;
+        font-size: 0.78rem;   /* 12.5px — manifest §12 nie pozwala zejsc ponizej 12px */
+        letter-spacing: 0.02em;
+        color: var(--dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
     }
     .ac-status {
         display: flex; align-items: center; gap: 8px;
         font-family: var(--mono); font-size: 0.68rem;
         letter-spacing: 0.04em; color: var(--dim);
+        white-space: nowrap; flex-shrink: 0;
     }
-    .ac-dot {
-        width: 8px; height: 8px; border-radius: 50%;
-        background: var(--dim); transition: background .25s ease, box-shadow .25s ease;
-    }
-    .ac-status.running { color: var(--cyan); }
-    .ac-status.running .ac-dot { background: var(--cyan); box-shadow: 0 0 8px rgba(0,229,204,0.6); }
+    .tool-header.running .ac-status { color: var(--cyan); }
 
     /* ---------- Układ: EKRAN (lewo) / KONTROLKI (prawo) ---------- */
     .app {
@@ -397,9 +426,27 @@
 
     .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-    /* Przełącznik ODTWÓRZ ⇄ PAUZA: idle outline, active filled (manifest §05) */
-    #playBtn { }
-    #playBtn.playing { background: var(--cyan); color: var(--black); border: none; }
+    /* Przelacznik ODTWORZ <-> PAUZA. W ciszy outline cyan, w trakcie grania pelne
+       wypelnienie — cyan jest w manifescie (§02) kolorem sygnalu aktywnego, wiec
+       "zielony przycisk po wcisnieciu play" realizujemy nim, bez nowego akcentu. */
+    #playBtn {
+        background: transparent; color: var(--cyan); border: 1px solid var(--cyan);
+        font-size: 1.15rem; line-height: 1;
+    }
+    #playBtn:hover:not(:disabled) { background: rgba(0,229,204,0.10); color: var(--cyan); border-color: var(--cyan); }
+    #playBtn.playing { background: var(--cyan); color: var(--black); border-color: var(--cyan); }
+    #playBtn.playing:hover:not(:disabled) { background: var(--cyan); color: var(--black); opacity: 0.85; }
+    #playBtn:active:not(:disabled) { opacity: 0.7; }
+    #playBtn:disabled { background: var(--border2); color: var(--dim); border-color: transparent; }
+
+    /* Stop: crimson tylko wtedy, gdy jest co zatrzymac. Dluzsza transition niz
+       pozostale przyciski — po zatrzymaniu ramka ma zgasnac, nie zniknac. */
+    #stopBtn { transition: color .6s ease, border-color .6s ease, background .6s ease; }
+    #stopBtn.armed { color: var(--crimson); border-color: var(--crimson); }
+    #stopBtn.armed:hover:not(:disabled) {
+        color: var(--crimson); border-color: var(--crimson); background: rgba(255,51,85,0.10);
+    }
+    #stopBtn:disabled { color: var(--dim); border-color: transparent; }
 
     input[type="file"] {
         flex: 1; min-width: 0;
@@ -459,10 +506,16 @@
     .progress-bar:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
     .progress-fill { height: 100%; background: var(--cyan); width: 0%; transition: width .1s linear; }
 
-    /* Transport [■] [−15] [▶] [+15] — ten sam układ co w Przestrzeni Relaksu.
-       Przycisk odtwarzania jest JEDYNYM primary w widoku (manifest §05). */
+    /* Transport [−15] [▶] [+15] [■] — stop przeniesiony na prawa strone rzedu
+       (decyzja Oskara 17.08): przewijanie i odtwarzanie to jedna grupa czynnosci,
+       zatrzymanie jest wyjsciem z niej i stoi osobno, na koncu.
+       Stany ramek (decyzja Oskara 17.08):
+         cisza  -> play ma ramke cyan i tekst cyan (zaproszenie), stop neutralny;
+         gra    -> play w pelnym wypelnieniu cyan, stop dostaje ramke crimson;
+         po sto -> ramka stopu GASNIE do neutralnej przez 0.6 s (dluzsza transition
+                   niz reszta transportu), zamiast zniknac skokiem. */
     .transport {
-        display: grid; grid-template-columns: 1fr 1fr 1.7fr 1fr; gap: 10px;
+        display: grid; grid-template-columns: 1fr 1.7fr 1fr 1fr; gap: 10px;
         margin-top: 14px;
     }
     .tbtn {
@@ -473,12 +526,6 @@
         transition: color .2s ease, border-color .2s ease, background .2s ease, opacity .2s ease;
     }
     .tbtn:hover:not(:disabled) { color: var(--cyan); border-color: var(--cyan); }
-    .tbtn-main {
-        background: var(--cyan); color: var(--black); border: none;
-        font-size: 1.15rem; line-height: 1;
-    }
-    .tbtn-main:hover:not(:disabled) { background: var(--cyan); color: var(--black); opacity: 0.85; }
-    .tbtn-main:active:not(:disabled) { opacity: 0.7; }
     .tbtn:disabled { background: var(--border2); color: var(--dim); border: none; cursor: not-allowed; }
     .time-row {
         display: flex; justify-content: space-between;
@@ -592,9 +639,22 @@
         .ctrl-hint, .hud-legend { font-size: 0.56rem; }
         .mrow { grid-template-columns: 12px 58px 46px; gap: 6px; }   /* miernik nie może wejść pod chip trybu */
     }
+    /* Pasek marki na waskim ekranie: degradacja progowa, NIE zmniejszanie fontow
+       (manifest §12 — tekst nie schodzi ponizej 12px). Kolejnosc ustepowania od rzeczy
+       najmniej potrzebnej: najpierw opis, potem napis statusu (dioda przy nazwie niesie
+       ten sam stan), na koncu slowo SAL — zostaje sama ikona, kierunek mowi tytul linku. */
+    @media (max-width: 860px) {
+        .tool-desc { display: none; }
+    }
+    @media (max-width: 620px) {
+        .ac-status { display: none; }
+    }
+    @media (max-width: 400px) {
+        .back-hub span { display: none; }
+        .back-hub { padding: 0 10px; }
+    }
     @media (max-width: 560px) {
         .tool-header { padding: 12px 16px; }
-        .tool-name { font-size: 0.78rem; }
         .panel { padding: 18px 16px; }
         .btn-row { grid-template-columns: 1fr; }
     }
@@ -602,14 +662,19 @@
 </head>
 <body>
 
-    <!-- Minimalny nagłówek narzędzia -->
-    <header class="tool-header">
+    <!-- Pasek marki SAL (manifest §08 + wzorzec z audio-shapes) -->
+    <header class="tool-header" id="toolHeader">
         <div class="tool-header-left">
-            <a class="back-hub" href="/">&larr; Hub</a>
+            <a class="back-hub" href="/" title="Powrót do Spatial Audio Lab">
+                <img src="/assets/brand/icon-192.png" alt="" width="18" height="18">
+                <span>&larr; SAL</span>
+            </a>
+            <span class="tool-sep" aria-hidden="true"></span>
+            <span class="tool-dot" id="acDot" aria-hidden="true"></span>
             <span class="tool-name">Sfera</span>
+            <span class="tool-desc">Odsłuch pola ambisonicznego</span>
         </div>
         <div class="ac-status" id="acStatus">
-            <span class="ac-dot" id="acDot"></span>
             <span id="acLabel">Audio Context: Idle</span>
         </div>
     </header>
@@ -749,10 +814,10 @@
                 </div>
 
                 <div class="transport">
-                    <button class="tbtn" id="stopBtn" onclick="stopAudio()" title="Zatrzymaj" aria-label="Zatrzymaj">&#9632;</button>
                     <button class="tbtn" onclick="seekBy(-15)" title="Cofnij o 15 sekund" aria-label="Cofnij o 15 sekund">&minus;15</button>
-                    <button class="tbtn tbtn-main" id="playBtn" onclick="togglePlayPause()" title="Odtwórz" aria-label="Odtwórz">&#9654;</button>
+                    <button class="tbtn" id="playBtn" onclick="togglePlayPause()" title="Odtwórz" aria-label="Odtwórz">&#9654;</button>
                     <button class="tbtn" onclick="seekBy(15)" title="Do przodu o 15 sekund" aria-label="Do przodu o 15 sekund">+15</button>
+                    <button class="tbtn" id="stopBtn" onclick="stopAudio()" title="Zatrzymaj" aria-label="Zatrzymaj">&#9632;</button>
                 </div>
 
                 <div class="slider-item" style="margin-top:14px;">
@@ -2330,6 +2395,11 @@
             btn.innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
             btn.setAttribute('aria-label', playing ? 'Pauza' : 'Odtwórz');
             btn.setAttribute('title', playing ? 'Pauza' : 'Odtwórz');
+            btn.classList.toggle('playing', playing);
+            // Stop dostaje ramke crimson dokladnie wtedy, gdy jest co zatrzymac.
+            // Po zdjeciu klasy ramka gasnie sama — robi to transition, nie licznik.
+            const stop = document.getElementById('stopBtn');
+            if (stop) { stop.classList.toggle('armed', playing); }
         }
 
         function seekAudio(event) {
@@ -2612,16 +2682,13 @@
             document.getElementById('hudMeter').classList.remove('hidden');
         }
         function updateAudioContextStatus() {
-            const el = document.getElementById('acStatus');
+            // Klasa siedzi na naglowku, nie na samym napisie: dioda przy nazwie i napis
+            // po prawej maja pokazywac ten sam stan, a na waskim ekranie napis znika.
+            const header = document.getElementById('toolHeader');
             const label = document.getElementById('acLabel');
             const running = !!(state.audioContext && state.audioContext.state === 'running' && state.isPlaying);
-            if (running) {
-                el.classList.add('running');
-                label.textContent = 'Audio Context: Running';
-            } else {
-                el.classList.remove('running');
-                label.textContent = 'Audio Context: Idle';
-            }
+            header.classList.toggle('running', running);
+            label.textContent = running ? 'Audio Context: Running' : 'Audio Context: Idle';
         }
 
         // ===========================================
@@ -2844,6 +2911,38 @@
         // ===========================================
         // Odczyt obwiedni z interpolacją liniową między sąsiednimi oknami — bez niej punkt
         // skakałby schodkami 50 razy na sekundę zamiast płynnie oddychać.
+        // Amplituda pulsu zalezna od rzedu pola. FOA opisuje cala sfere czterema
+        // kanalami, wiec kierunek jest najbardziej rozmyty — punkt musi oddychac
+        // najmocniej, zeby wzrok mial czego sie trzymac. Przy HOA precyzje niesie samo
+        // pole i puls moze byc spokojniejszy, inaczej obraz zaczyna migotac.
+        // 1. rzad -> 8.5 px, 2. -> 6.0, 3. i wyzej -> 4.5 (przed skalowaniem perspektywa).
+        function pulseAmp() {
+            const ord = state.ambiOrder || 1;
+            if (ord <= 1) { return 8.5; }
+            if (ord === 2) { return 6.0; }
+            return 4.5;
+        }
+
+        // Obwiednia w _SCENA.json jest probkowana 50 razy na sekunde. Sama interpolacja
+        // liniowa miedzy oknami nie wystarcza: na transjentach poziom skacze w gore i w dol
+        // szybciej, niz oko nadaza, i "promieniowanie" punktu miga zamiast plynac.
+        // Filtr jednobiegunowy z szybkim atakiem i wolnym opadaniem zostawia rytm nagrania,
+        // ale wygladza opadanie. Stale czasowe w sekundach, niezalezne od klatkazu —
+        // to samo zachowanie przy 60 i przy 144 Hz.
+        // Wygladzamy po stronie odtwarzacza, NIE zmniejszamy gestosci eksportu: pliki
+        // wyeksportowane wczesniej maja dzialac bez zmian.
+        const ENV_ATTACK = 0.045;   // s — narastanie
+        const ENV_RELEASE = 0.22;   // s — opadanie
+        function smoothEnv(o, target, dt) {
+            if (target === null) { o.lvlSmooth = null; return null; }
+            if (o.lvlSmooth === undefined || o.lvlSmooth === null) { o.lvlSmooth = target; return target; }
+            const tau = (target > o.lvlSmooth) ? ENV_ATTACK : ENV_RELEASE;
+            // wspolczynnik wykladniczy; przy dlugiej klatce zbiega do 1, wiec nie przestrzeli
+            const k = 1 - Math.exp(-Math.max(0, dt) / tau);
+            o.lvlSmooth += (target - o.lvlSmooth) * k;
+            return o.lvlSmooth;
+        }
+
         function sampleLevel(level, timeSec) {
             if (!level) { return null; }
             const x = timeSec * level.hz;
@@ -2856,15 +2955,22 @@
         }
 
         // Jedno przeliczenie na klatkę — ta sama liczba obsługuje pozycję punktu i podpis.
+        let envLastMs = null;
         function sceneObjectFrame() {
             const out = [];
             if (!state.sceneObjects.length || state.mode === 'binaural') { return out; }
             const t = mediaCurrent();
+            // dt liczony z zegara scennego, nie zakladany jako 1/60 — po powrocie z tla
+            // pierwsza klatka potrafi trwac sekundy i skok trzeba wchlonac, nie odtworzyc.
+            const now = performance.now();
+            const dt = (envLastMs === null) ? 0.016 : Math.min(0.25, (now - envLastMs) / 1000);
+            envLastMs = now;
             for (const o of state.sceneObjects) {
                 const r = fieldTf(o.v);                 // pole się obraca, głowa stoi
                 // Przód słuchacza to stale +Z, więc kąt od przodu = acos(składowej Z).
                 const ang = Math.acos(Math.max(-1, Math.min(1, r.z))) / D2R;
-                out.push({ o: o, r: r, p: project(r), ang: ang, lvl: sampleLevel(o.level, t) });
+                const raw = sampleLevel(o.level, t);
+                out.push({ o: o, r: r, p: project(r), ang: ang, lvl: smoothEnv(o, raw, dt) });
             }
             return out;
         }
@@ -2873,16 +2979,20 @@
             const ctx = field.ctx;
             const lvl = (fr.lvl === null) ? 0.55 : fr.lvl;      // brak obwiedni = punkt spokojny
             const base = 0.4 + 0.6 * fr.o.volume;               // suwak głośności z Explorera
-            const r = (3.0 + 5.5 * lvl) * fr.p.s;
+            const amp = pulseAmp();                             // im nizszy rzad, tym wieksza amplituda
+            const r = (3.0 + amp * lvl) * fr.p.s;
             ctx.save();
             ctx.shadowColor = 'rgba(0,229,204,' + (0.3 + 0.6 * lvl).toFixed(3) + ')';
-            ctx.shadowBlur = 6 + 16 * lvl;
+            ctx.shadowBlur = 6 + 2 * amp * lvl;
             ctx.fillStyle = 'rgba(0,229,204,' + ((0.35 + 0.65 * lvl) * base).toFixed(3) + ')';
             ctx.beginPath(); ctx.arc(fr.p.x, fr.p.y, r, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
+            // Pierscien "promieniowania": im nizszy rzad pola, tym dalej odchodzi od punktu.
             ctx.strokeStyle = 'rgba(0,229,204,' + ((0.10 + 0.28 * lvl) * base).toFixed(3) + ')';
             ctx.lineWidth = 1.2;
-            ctx.beginPath(); ctx.arc(fr.p.x, fr.p.y, r * (1.9 + 1.3 * lvl), 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(fr.p.x, fr.p.y, r * (1.9 + (0.15 * amp) * lvl), 0, Math.PI * 2);
+            ctx.stroke();
         }
 
         // Kosinusowe zanikanie: 1 do LABEL_FULL_DEG, gładko do 0 przy LABEL_ZERO_DEG.
@@ -2910,7 +3020,7 @@
         function drawSceneLabel(fr, a) {
             const ctx = field.ctx;
             const lvl = (fr.lvl === null) ? 0.55 : fr.lvl;
-            const r = (3.0 + 5.5 * lvl) * fr.p.s;
+            const r = (3.0 + pulseAmp() * lvl) * fr.p.s;   // ten sam promien co punkt
             let dx = fr.p.x - field.cx, dy = fr.p.y - field.cy;
             const len = Math.hypot(dx, dy);
             if (len < 1) { dx = 0; dy = 1; } else { dx /= len; dy /= len; }
