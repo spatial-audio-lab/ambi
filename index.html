@@ -17,7 +17,9 @@
     /* ==========================================================================
        SPATIAL AUDIO LAB — Sfera
        Zgodny z SAL Design Manifest v3.0 (tryb NARZĘDZIE = wydajność).
-       Tokeny 1:1 z manifestem. Bez --acid wewnątrz narzędzia. Bez grain/blur.
+       Tokeny 1:1 z manifestem. Bez grain/blur. Zakaz --acid wewnątrz narzędzia
+       zniósł pasek v3.1: acid nosi pigułkę SAL i ikonę apki, czyli te dwa miejsca,
+       które mówią „to jest Spatial Audio Lab". Sygnałem aktywności zostaje cyan.
        ========================================================================== */
     :root {
         --black:      #0A0C08;   /* tło narzędzia */
@@ -28,6 +30,8 @@
         --border2:    rgba(240,235,224,0.14);
         --cyan:       #00E5CC;   /* sygnał aktywny / playback / fokus */
         --cyan-dim:   rgba(0,229,204,0.14);
+        --acid:       #BEFF00;   /* marka SAL: pigulka w pasku, ikona apki, warstwa opisowa */
+        --acid-dim:   rgba(190,255,0,0.40);
         --amber:      #FFAB00;   /* ambisonia / pole 3D / odczyt pozycji */
         --amber-dim:  rgba(255,171,0,0.14);
         --crimson:    #FF3355;   /* clipping / REC / błąd */
@@ -63,12 +67,13 @@
         background: var(--black);
         border-bottom: 1px solid var(--border2);
     }
-    /* Pasek marki SAL — wzorzec wspolny dla wszystkich narzedzi laboratorium:
-       [ikona SAL | <- SAL]  |  (dioda) NAZWA  opis        ...        status Audio Context
-       Ikona idzie z katalogu /assets/ Hubu: wszystkie aplikacje siedza pod tym samym
-       originem (spatial-audio-lab.github.io/<repo>/), wiec sciezka od roota trafia do
-       repozytorium portalu. Jedno miejsce aktualizacji, zero duplikatow binariow.
-       Podglad z dysku (file://) pokaze sam tekst alt — to swiadomy koszt. */
+    /* Pasek marki SAL v3.1 — wzorzec wspolny dla wszystkich narzedzi laboratorium:
+       [ikona apki | <- SAL] | (dioda) NAZWA opis ... zakladki · status Audio Context
+       Ikona lezy w assets/brand/ TEGO repozytorium i jest adresowana wzglednie. Do v3.0
+       szla ze wspolnego /assets/ Hubu, co oszczedzalo duplikat binarium, ale kosztowalo
+       widocznosc przy otwarciu z dysku (file:// pokazywalo sam tekst alt). v3.1 daje kazdej
+       apce wlasny WARIANT KOLORYSTYCZNY ikony, wiec wspolny plik i tak przestal wystarczac
+       — a przy okazji znika tamten koszt. */
     .tool-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .back-hub {
         display: inline-flex; align-items: center; gap: 8px;
@@ -77,18 +82,18 @@
         font-size: 0.68rem;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: var(--dim);
+        color: var(--acid);
         text-decoration: none;
-        border: 1px solid var(--border2);
-        border-radius: 0;
-        padding: 0 12px;
+        border: 1px solid var(--acid-dim);
+        border-radius: 999px;
+        padding: 0 14px;
         min-height: 44px;
         transition: color .2s ease, border-color .2s ease;
         white-space: nowrap;
         flex-shrink: 0;
     }
-    .back-hub:hover { color: var(--cyan); border-color: var(--cyan); }
-    .back-hub img { width: 18px; height: 18px; display: block; flex-shrink: 0; }
+    .back-hub:hover { border-color: var(--acid); background: rgba(190,255,0,0.08); }
+    .back-hub img { width: 18px; height: 18px; display: block; flex-shrink: 0; border-radius: 3px; }
     .tool-sep { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
     /* Dioda stanu przy nazwie — ten sam stan co napis Audio Context po prawej,
        ale widoczna takze wtedy, gdy napis zniknie na waskim ekranie (manifest §12). */
@@ -125,6 +130,84 @@
         white-space: nowrap; flex-shrink: 0;
     }
     .tool-header.running .ac-status { color: var(--cyan); }
+
+    /* --- §08 v3.1: zakladki po prawej stronie paska. Kolejnosc jest celowa i taka sama
+       w kazdej aplikacji laboratorium: POMOC, potem O PROJEKCIE na samym koncu.
+       Uzytkownik przechodzacy miedzy Scena a Sfera ma je zawsze w tym samym miejscu. --- */
+    .tool-header-right { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+    .nav-link {
+        font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em;
+        text-transform: uppercase; color: var(--dim);
+        background: none; border: none; cursor: pointer;
+        min-height: 44px; display: inline-flex; align-items: center;
+        transition: color .25s ease;
+    }
+    .nav-link:hover { color: var(--cream); }
+    .nav-link.is-open { color: var(--cyan); }
+
+    /* --- Nakladki POMOC i O PROJEKCIE. Jeden wzorzec na obie, bo roznia sie wylacznie
+       trescia — dwie osobne implementacje tego samego okna to dokladnie ten dlug,
+       ktory ten projekt juz raz splacal. --- */
+    .overlay {
+        position: fixed; inset: 0; z-index: 300; display: none;
+        align-items: center; justify-content: center;
+        background: rgba(10,12,8,0.92); padding: 20px;
+    }
+    .overlay.open { display: flex; }
+    .overlay-box {
+        width: 560px; max-width: 100%; max-height: 84vh; overflow-y: auto;
+        border: 1px solid var(--border2); background: var(--black); padding: 28px;
+    }
+    .overlay-box h2 {
+        font-family: var(--display); font-size: 1.7rem; font-weight: 300;
+        color: var(--cream); margin-bottom: 18px;
+    }
+    .overlay-box h2 em { font-style: italic; color: var(--cyan); }
+    .overlay-box h3 {
+        font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.2em;
+        text-transform: uppercase; color: var(--amber); font-weight: 500;
+        margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border2);
+    }
+    .overlay-box p { font-size: 0.9rem; line-height: 1.75; color: var(--cream); margin-bottom: 9px; opacity: .95; }
+    .overlay-box b, .overlay-box strong { color: var(--cream); font-weight: 600; }
+    .overlay-box em { font-style: normal; color: var(--amber); }
+    .overlay-box a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid var(--cyan-dim); }
+    .overlay-box a:hover { border-bottom-color: var(--cyan); }
+    .overlay-box kbd {
+        display: inline-block; padding: 2px 6px; border: 1px solid var(--border2);
+        font-family: var(--mono); font-size: 0.7rem; color: var(--cyan);
+    }
+    .ov-tabs { display: flex; border: 1px solid var(--border2); margin-bottom: 6px; }
+    .ov-tab {
+        flex: 1; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+        text-transform: uppercase; padding: 11px 8px; background: none; color: var(--dim);
+        border: none; border-right: 1px solid var(--border2); cursor: pointer;
+        min-height: 44px; transition: color .25s ease, background .25s ease;
+    }
+    .ov-tab:last-child { border-right: none; }
+    .ov-tab:hover { color: var(--cream); }
+    .ov-tab.active { color: var(--cyan); background: rgba(0,229,204,0.07); }
+    .ov-close {
+        font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em;
+        text-transform: uppercase; padding: 11px 22px; margin-top: 22px;
+        border: 1px solid var(--border2); background: none; color: var(--dim);
+        cursor: pointer; min-height: 44px; transition: color .3s ease, border-color .3s ease;
+    }
+    .ov-close:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* --- §13 oznakowanie KPO/UE. Belka logotypow ma bezwzglednie stac na BIALYM tle —
+       to warunek programu, nie decyzja estetyczna, wiec kontener dostaje wlasne tlo
+       niezalezne od motywu aplikacji. Grafika siedzi w pliku jako data URI, a nie jako
+       Grafika lezy w assets/brand/ tego repozytorium i jest adresowana WZGLEDNIE, a nie od
+       roota Hubu: oznakowanie finansowania musi sie narysowac takze wtedy, gdy ktos otworzy
+       plik prosto z dysku. To jedyny wyjatek od zasady "binaria trzymamy raz, w Hubie" i ma
+       swoj powod — reszta ikon moze zniknac bez szkody, ta belka nie. --- */
+    .kpo-strip { background: #FFFFFF; padding: 14px 16px; margin-top: 20px; border-radius: 2px; }
+    .kpo-strip img { display: block; width: 100%; height: auto; }
+    .about-meta { margin: 14px 0 18px; border-top: 1px solid var(--border2); }
+    .about-row { display: flex; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border2); font-size: 0.85rem; }
+    .about-key { flex: 0 0 42%; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+    .about-val { color: var(--cream); }
 
     /* ---------- Układ: EKRAN (lewo) / KONTROLKI (prawo) ---------- */
     .app {
@@ -648,6 +731,7 @@
     }
     @media (max-width: 620px) {
         .ac-status { display: none; }
+        .tool-header-right { gap: 14px; }
     }
     @media (max-width: 400px) {
         .back-hub span { display: none; }
@@ -666,7 +750,7 @@
     <header class="tool-header" id="toolHeader">
         <div class="tool-header-left">
             <a class="back-hub" href="/" title="Powrót do Spatial Audio Lab">
-                <img src="/assets/brand/icon-192.png" alt="" width="18" height="18">
+                <img src="assets/brand/icon-app.png" alt="" width="18" height="18">
                 <span>&larr; SAL</span>
             </a>
             <span class="tool-sep" aria-hidden="true"></span>
@@ -674,10 +758,112 @@
             <span class="tool-name">Sfera</span>
             <span class="tool-desc">Odsłuch pola ambisonicznego</span>
         </div>
-        <div class="ac-status" id="acStatus">
-            <span id="acLabel">Audio Context: Idle</span>
+        <div class="tool-header-right">
+            <button class="nav-link" id="helpBtn" type="button">Pomoc</button>
+            <button class="nav-link" id="aboutBtn" type="button">O projekcie</button>
+            <div class="ac-status" id="acStatus">
+                <span id="acLabel">Audio Context: Idle</span>
+            </div>
         </div>
     </header>
+
+
+    <!-- ================= POMOC — przewodnik uzytkownika ================= -->
+    <div class="overlay" id="helpOverlay">
+      <div class="overlay-box">
+        <h2>Sfera &mdash; <em>przewodnik</em></h2>
+        <div class="ov-tabs" role="tablist">
+          <button class="ov-tab active" id="hTabStart" role="tab" aria-selected="true" aria-controls="hStart">Zacznij tutaj</button>
+          <button class="ov-tab" id="hTabPanels" role="tab" aria-selected="false" aria-controls="hPanels">Panele</button>
+          <button class="ov-tab" id="hTabEco" role="tab" aria-selected="false" aria-controls="hEco">W ekosystemie</button>
+        </div>
+
+        <div id="hStart" role="tabpanel">
+          <h3>Do czego służy Sfera</h3>
+          <p><strong>Sfera</strong> odtwarza nagrania ambisoniczne i pozwala <strong>obracać całym polem dźwiękowym</strong> wokół nieruchomej głowy &mdash; tak, jakbyś chwycił kulę i nią obrócił. Kula na ekranie to nie dekoracja: punkty na niej pokazują, skąd naprawdę dochodzi dźwięk w pliku.</p>
+          <p>Nic nie jest wysyłane na serwer. Plik zostaje w Twojej przeglądarce.</p>
+
+          <h3>Załóż słuchawki</h3>
+          <p>To nie jest zalecenie, tylko warunek działania. Efekt przestrzenny powstaje z różnicy między tym, co słyszy lewe i prawe ucho. Na głośnikach oba kanały mieszają się w powietrzu i cała informacja o kierunku znika.</p>
+
+          <h3>Trzy kroki</h3>
+          <p>1. Przeciągnij plik audio na kulę albo użyj przycisku <em>Wybierz plik</em> po prawej. Obsługiwane: WAV, MP3, OGG, Opus, FLAC, M4A, AAC, WebM.</p>
+          <p>2. Naciśnij <kbd>Spacja</kbd>, żeby odtworzyć.</p>
+          <p>3. Złap kulę myszą i obróć. Dźwięk pojedzie dokładnie tam, gdzie jedzie punkt: w prawo znaczy w prawo.</p>
+
+          <h3>Jakie pliki tu pasują</h3>
+          <p>Sfera rozpoznaje rodzaj pliku po jego nagłówku, sama, bez pytania.</p>
+          <p><strong>Pliki 4-kanałowe (AmbiX, ambisonia 1. rzędu)</strong> &mdash; pełne pole dźwiękowe. Dostają dekoder ambisoniczny i to one dają obracanie. Obsługiwane są też wyższe rzędy: 9 kanałów (2. rząd) i 16 kanałów (3. rząd).</p>
+          <p><strong>Pliki 2-kanałowe (binauralne)</strong> &mdash; grają bez zmian, bo kierunki są już w nich zapisane na stałe. Obracać ich się nie da i to nie jest usterka: w takim pliku nie ma już z czego policzyć obrotu.</p>
+          <p>Jeśli masz plik ze <strong>Sceny</strong>, ten do obracania nazywa się <em>AMBIX</em>.</p>
+
+          <h3>Gdy coś brzmi nie tak</h3>
+          <p>Rozwiń <strong>Test orientacji</strong> po prawej. Odtwarza impulsy szumu zakodowane kolejno na sześć kierunków &mdash; jeśli słyszysz je tam, gdzie pokazuje napis i gdzie zapala się punkt, dekoder i osie działają poprawnie. Test nie wymaga wczytanego pliku.</p>
+        </div>
+
+        <div id="hPanels" role="tabpanel" style="display:none">
+          <h3>Odtwarzanie</h3>
+          <p><kbd>Spacja</kbd> odtwarza i pauzuje. Strzałki <kbd>&larr;</kbd><kbd>&rarr;</kbd> przewijają o 5 sekund, <kbd>PageUp</kbd> i <kbd>PageDown</kbd> o 30 sekund, <kbd>Home</kbd> wraca na początek. Pasek postępu można też złapać klawiszem <kbd>Tab</kbd> i przewijać strzałkami.</p>
+
+          <h3>Rotacja pola</h3>
+          <p><strong>Yaw</strong> to obrót w lewo i w prawo, <strong>Pitch</strong> góra i dół, <strong>Roll</strong> przechylenie głowy. <em>Żyroskop</em> oddaje sterowanie czujnikowi telefonu, <em>Auto</em> obraca sceną wolno w kółko. Działa wyłącznie dla plików wielokanałowych.</p>
+          <p>Obraca się <strong>pole</strong>, a nie głowa &mdash; przód słuchacza zostaje na miejscu, u góry ekranu. Dlatego litery kierunków F, L, R, B, U, D jadą razem z polem.</p>
+
+          <h3>Nazwy obiektów</h3>
+          <p>Punkty na kuli pojawiają się dopiero wtedy, gdy dorzucisz plik <strong>_SCENA.json</strong> ze Sceny. Każdy punkt to jedno nazwane źródło i <strong>świeci w rytm głośności swojego nagrania</strong>: cichnie, gdy dźwięk cichnie, a na uderzeniu odchodzi od niego fala.</p>
+          <p><strong>Promień punktu niesie odległość.</strong> Kula odpowiada 10 metrom: źródło bliżej wpada do środka kuli, dalsze wychodzi na zewnątrz. Odległość nie jest zapisana w samym dźwięku &mdash; bierze się z opisu sceny, a w nagraniu jest już wtopiona w poziom i pogłos.</p>
+          <p>Przełącznik <em>Kiedy pokazywać podpisy</em> ma trzy stany. <strong>Z przodu</strong> zapala podpis dopiero wtedy, gdy dane źródło znajdzie się przed Tobą &mdash; to stan domyślny i najspokojniejszy przy wielu źródłach. <strong>Zawsze</strong> pokazuje wszystkie naraz, przygaszając te zza pleców. <strong>Nigdy</strong> zostawia same punkty.</p>
+
+          <h3>Szczegóły sygnału</h3>
+          <p>Rozwijana sekcja z odczytem tego, co faktycznie siedzi w pliku: liczba kanałów, rozpoznany rząd pola, poziom. Przydaje się, gdy plik brzmi inaczej, niż powinien &mdash; najczęstsza przyczyna to plik opisany jako ambisoniczny, który nim nie jest.</p>
+        </div>
+
+        <div id="hEco" role="tabpanel" style="display:none">
+          <h3>Gdzie jesteś</h3>
+          <p><strong>Scena</strong> to warsztat: układasz w niej dźwięki wokół słuchacza i eksportujesz gotowy materiał. <strong>Sfera</strong> &mdash; ta aplikacja &mdash; to odsłuch. Obie wychodzą z jednego miejsca, z <a href="/" target="_blank" rel="noopener">Spatial Audio Lab</a>, i obie działają w przeglądarce.</p>
+
+          <h3>Droga od sceny do odsłuchu</h3>
+          <p>1. W <strong>Scenie</strong> ułóż dźwięki i kliknij «Eksportuj scenę». Na dysk trafia pięć plików o wspólnej nazwie.</p>
+          <p>2. Przeciągnij tutaj plik <strong>AMBIX</strong> &mdash; ten czterokanałowy. To on niesie pole dźwiękowe i to jego można obracać.</p>
+          <p>3. Dorzuć plik <strong>SCENA</strong> (z rozszerzeniem .json). Dopiero on zapala na kuli nazwane punkty w miejscach Twoich źródeł.</p>
+          <p>Kolejność nie ma znaczenia. Bez pliku AMBIX nie ma czego odtwarzać; bez pliku SCENA zobaczysz samo pole, bez podpisów.</p>
+
+          <h3>Czego nie da się odtworzyć z pliku</h3>
+          <p>Pozycja <strong>słuchacza</strong> jest zamrożona na moment eksportu ze Sceny &mdash; to układ odniesienia całego nagrania. Ruch źródeł natomiast zostaje utrwalony i punkty jadą w Sferze dokładnie tam, gdzie słychać dźwięk.</p>
+
+          <h3>Starsze pliki</h3>
+          <p>Sfera czyta zarówno bieżący, jak i poprzedni format opisu sceny, rozpoznając go po zawartości. Nagrania zrobione przed zmianą formatu działają bez konwersji.</p>
+        </div>
+
+        <button class="ov-close" id="helpClose" type="button">Zamknij</button>
+      </div>
+    </div>
+
+    <!-- ============ O PROJEKCIE — §13, oznakowanie KPO/UE w kazdej aplikacji ============ -->
+    <div class="overlay" id="aboutOverlay">
+      <div class="overlay-box">
+        <h2>O <em>projekcie</em></h2>
+        <p><strong>Sfera</strong> jest jednym z narzędzi <strong>Spatial Audio Lab</strong> &mdash; projektu stypendialnego poświęconego dźwiękowi przestrzennemu. W ramach projektu powstaje archiwum nagrań w technologii VR oraz zestaw otwartych narzędzi webowych, dzięki którym ten materiał da się nie tylko odsłuchać, ale i wykorzystać we własnej pracy.</p>
+
+        <h3>Realizacja</h3>
+        <div class="about-meta">
+          <div class="about-row"><span class="about-key">Stypendysta</span><span class="about-val">Oskar Hamerski</span></div>
+          <div class="about-row"><span class="about-key">Program</span><span class="about-val">Krajowy Plan Odbudowy &mdash; stypendia NIMIT</span></div>
+          <div class="about-row"><span class="about-key">Umowa</span><span class="about-val">143/KPO.STYPENDIA/NIMIT/2025</span></div>
+          <div class="about-row"><span class="about-key">Instytucja wspierająca</span><span class="about-val">Narodowy Instytut Muzyki i Tańca</span></div>
+          <div class="about-row"><span class="about-key">Inwestycja</span><span class="about-val">A2.5.1</span></div>
+          <div class="about-row"><span class="about-key">Technologia</span><span class="about-val">Web Audio API &middot; Ambisonia FOA/HOA &middot; AmbiX</span></div>
+        </div>
+
+        <p>Sfinansowano ze środków <strong>Krajowego Planu Odbudowy i Zwiększania Odporności</strong> w ramach inwestycji A2.5.1, ze stypendium Narodowego Instytutu Muzyki i Tańca, umowa nr 143/KPO.STYPENDIA/NIMIT/2025.</p>
+        <p>Pełny opis przedsięwzięcia, wskaźniki i pozostałe narzędzia: <a href="/o-projekcie/" target="_blank" rel="noopener">spatial-audio-lab.github.io/o-projekcie</a>.</p>
+
+        <div class="kpo-strip">
+          <img src="assets/brand/kpo-belka.jpg" alt="Logotypy: Krajowy Plan Odbudowy, Rzeczpospolita Polska oraz Sfinansowane przez Unię Europejską NextGenerationEU">
+        </div>
+        <button class="ov-close" id="aboutClose" type="button">Zamknij</button>
+      </div>
+    </div>
 
     <!-- Układ główny -->
     <div class="app">
@@ -2583,6 +2769,14 @@
         function onGlobalKey(e) {
             const t = e.target;
             const tag = t && t.tagName ? t.tagName : '';
+            // Nakladka na wierzchu przejmuje klawiature w calosci: Escape ja zamyka,
+            // reszta skrotow milknie. Inaczej Spacja czytana w tle zatrzymywalaby dzwiek
+            // zamiast przewinac tresc pomocy.
+            const naWierzchu = nakladkaOtwarta();
+            if (naWierzchu) {
+                if (e.key === 'Escape') { ustawNakladke(naWierzchu, false); e.preventDefault(); }
+                return;
+            }
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
             if (t && t.id === 'progressBar') return;           // ma własną obsługę
             if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -3553,6 +3747,58 @@
             if (state.mode === 'binaural') return;
             state.rotationX = 0; state.rotationY = 0; state.rotationZ = 0;
             pushRotationToUI();
+        }
+
+
+        // ======================================================================
+        // NAKLADKI PASKA: POMOC i O PROJEKCIE (manifest par.08 v3.1, par.13)
+        // Jedna funkcja na obie, bo roznia sie wylacznie trescia. Nigdy nie stoja
+        // otwarte naraz — obie przykrywaja caly ekran i druga bylaby niewidoczna.
+        // ======================================================================
+        const OV_PRZYCISK = { helpOverlay: 'helpBtn', aboutOverlay: 'aboutBtn' };
+        function ustawNakladke(id, otwarta) {
+            const ov = document.getElementById(id);
+            if (!ov) { return; }
+            ov.classList.toggle('open', otwarta);
+            const b = document.getElementById(OV_PRZYCISK[id]);
+            if (b) { b.classList.toggle('is-open', otwarta); }
+        }
+        function otworzNakladke(id) {
+            for (const inny in OV_PRZYCISK) { ustawNakladke(inny, inny === id); }
+        }
+        const OV_ZAKLADKI = { start: ['hTabStart', 'hStart'], panels: ['hTabPanels', 'hPanels'], eco: ['hTabEco', 'hEco'] };
+        function ustawZakladkePomocy(nazwa) {
+            for (const k in OV_ZAKLADKI) {
+                const czynna = (k === nazwa);
+                const [bId, pId] = OV_ZAKLADKI[k];
+                const b = document.getElementById(bId), p = document.getElementById(pId);
+                if (b) { b.classList.toggle('active', czynna); b.setAttribute('aria-selected', czynna ? 'true' : 'false'); }
+                if (p) { p.style.display = czynna ? '' : 'none'; }
+            }
+        }
+        (function wepnijNakladki() {
+            for (const k in OV_ZAKLADKI) {
+                const b = document.getElementById(OV_ZAKLADKI[k][0]);
+                if (b) { b.addEventListener('click', () => ustawZakladkePomocy(k)); }
+            }
+            document.getElementById('helpBtn').addEventListener('click', () => {
+                ustawZakladkePomocy('start'); otworzNakladke('helpOverlay');
+            });
+            document.getElementById('aboutBtn').addEventListener('click', () => otworzNakladke('aboutOverlay'));
+            document.getElementById('helpClose').addEventListener('click', () => ustawNakladke('helpOverlay', false));
+            document.getElementById('aboutClose').addEventListener('click', () => ustawNakladke('aboutOverlay', false));
+            for (const id in OV_PRZYCISK) {
+                const ov = document.getElementById(id);
+                ov.addEventListener('click', e => { if (e.target === ov) { ustawNakladke(id, false); } });
+            }
+        })();
+        // Czy ktoras nakladka jest na wierzchu — skroty odtwarzania musza wtedy milczec,
+        // inaczej Spacja czytana w tle zatrzymuje dzwiek zamiast przewinac tresc pomocy.
+        function nakladkaOtwarta() {
+            for (const id in OV_PRZYCISK) {
+                if (document.getElementById(id).classList.contains('open')) { return id; }
+            }
+            return null;
         }
 
         function animationLoop() {
