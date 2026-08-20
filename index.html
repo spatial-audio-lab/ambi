@@ -1974,9 +1974,38 @@
         // Ta sama zamiana osi, co wyżej, tylko wejście jest kartezjańskie (ścieżka v3):
         // px w prawo od słuchacza, py do przodu, h w górę. Odległość nie jest tu potrzebna —
         // na kuli liczy się sam kierunek, więc wektor od razu wychodzi znormalizowany.
+        // Wektor wychodzi znormalizowany, ale odległość w metrach jedzie z nim jako `d` —
+        // potrzebuje jej promień punktu (patrz promienWizualny). Liczona tu raz, przy okazji
+        // normalizacji, a nie drugi raz w miejscu użycia.
         function dirVectorFromXY(px, py, h) {
             const d = Math.hypot(px, py, h) || 1;
-            return { x: px / d, y: h / d, z: py / d };
+            return { x: px / d, y: h / d, z: py / d, d: d };
+        }
+
+        // Odległość -> promień punktu w promieniach kuli. Kula to RAD_REF_M metrów: bliżej
+        // punkt wpada do środka, dalej wychodzi na zewnątrz. Logarytmicznie, bo scena ma
+        // ±25 m i liniowo dalekie źródła uciekłyby z kadru.
+        //
+        // Dwa różne nachylenia, bo miejsca jest niesymetrycznie. Do środka kuli droga jest
+        // wolna, więc bliskie źródła dostają szeroki rozstrzał (10 m -> 1, 5 m -> 0,65,
+        // 2,5 m -> 0,30). Na zewnątrz kadr się kończy: zmierzone `field.R = min(w,h)*0,33`
+        // daje stosunek 0,660 do połowy krótszego boku, a razem z perspektywą największy
+        // mnożnik mieszczący punkt wraz z poświatą to **1,332** — i to niezależnie od
+        // rozmiaru okna, bo R skaluje się razem z kadrem. RAD_K_DAL dobrane tak, żeby
+        // przekątna sceny (35 m) trafiła dokładnie w tę granicę, a nie została obcięta.
+        //
+        // Uwaga, o której łatwo zapomnieć: sam plik ambisoniczny NIE niesie odległości —
+        // jest wpieczona w poziom i pogłos przy eksporcie. Promień punktu opisuje scenę
+        // ze Sceny, nie pole z pliku.
+        const RAD_REF_M = 10;         // odległość, przy której punkt leży dokładnie na kuli
+        const RAD_K_BLISKO = 0.35;    // nachylenie do środka: ile ubywa na połowienie odległości
+        const RAD_K_DAL = 0.18;       // nachylenie na zewnątrz: 35 m -> 1,325
+        const RAD_MIN = 0.28, RAD_MAX = 1.33;
+        function promienWizualny(dist) {
+            if (!(dist > 0)) { return 1; }          // brak odległości = zachowanie sprzed zmiany
+            const oktawy = Math.log2(dist / RAD_REF_M);
+            const r = 1 + oktawy * (oktawy < 0 ? RAD_K_BLISKO : RAD_K_DAL);
+            return Math.max(RAD_MIN, Math.min(RAD_MAX, r));
         }
 
         // base64 -> bajty. Plik wskazuje użytkownik, więc zły zapis ma skończyć jako brak
@@ -2003,7 +2032,33 @@
                 const v = Number(src[i]);
                 out[i] = isFinite(v) ? Math.max(0, Math.min(1, v / 255)) : 0;
             }
+            rozciagnijObwiednie(out);
             return { hz: (lv.hz > 0 ? lv.hz : LEVEL_DEFAULT_HZ), values: out };
+        }
+
+        // Obwiednia z pliku jest liniowa w decybelach od -60 dBFS w górę, więc muzyka
+        // i atmosfery siedzą w górnej części skali i surowa wartość prawie nie drga.
+        // Zmierzone na eksporcie ze Sceny: ton ciągły 0,796..0,796, modulacja 6 dB
+        // 0,711..0,805 — po przełożeniu na promień punktu 1,00x i 1,09x, czyli dla oka nic.
+        // Impulsy dawały 2,52x. Dlatego każde źródło dostaje własny zakres: percentyle 15
+        // i 98 rozciągamy na pełną skalę i to dopiero steruje świeceniem.
+        //
+        // Percentyle, nie min/max: pojedynczy trzask albo jedna cicha klatka inaczej
+        // ustawiałyby zakres całego nagrania. Dolny brany nisko, bo źródła rytmiczne mają
+        // w tablicy więcej ciszy niż dźwięku.
+        const LVL_P_LO = 0.15, LVL_P_HI = 0.98;
+        const LVL_PLASKIE = 0.06;   // mniejsza rozpiętość = źródło naprawdę równe, nie ruszamy
+        function rozciagnijObwiednie(vals) {
+            if (vals.length < 4) { return; }
+            const s = Float32Array.from(vals); s.sort();
+            const lo = s[Math.floor((s.length - 1) * LVL_P_LO)];
+            const hi = s[Math.floor((s.length - 1) * LVL_P_HI)];
+            // Źródło o stałym poziomie ma świecić równo, a nie migotać szumem kwantyzacji.
+            if (!(hi - lo > LVL_PLASKIE)) { return; }
+            const k = 1 / (hi - lo);
+            for (let i = 0; i < vals.length; i++) {
+                vals[i] = Math.max(0, Math.min(1, (vals[i] - lo) * k));
+            }
         }
 
         function toF32(arr) {
@@ -2033,7 +2088,10 @@
             }
             if (Array.isArray(p.az) && p.az.length) {
                 const el = (Array.isArray(p.el) && p.el.length === p.az.length) ? toF32(p.el) : null;
-                return { hz: p.hz, kind: 'azel', az: toF32(p.az), el: el };
+                // `dist` w v2 nie wpływa na kierunek, ale od kiedy promień punktu niesie
+                // odległość, jest potrzebne — pliki v2 mają ją pokazywać tak samo jak v3.
+                const dist = (Array.isArray(p.dist) && p.dist.length === p.az.length) ? toF32(p.dist) : null;
+                return { hz: p.hz, kind: 'azel', az: toF32(p.az), el: el, dist: dist };
             }
             return null;
         }
@@ -2145,6 +2203,9 @@
                 objs.push({
                     name: String(o.name || ('Obiekt ' + (i + 1))).slice(0, 40),
                     az: o.az, el: o.el,
+                    // Odległość pierwszej klatki — dla źródeł bez ścieżki to jedyna, jaką
+                    // mamy, i to ona ustawia promień punktu.
+                    dist: (typeof o.dist === 'number' && isFinite(o.dist) && o.dist > 0) ? o.dist : null,
                     v: dirVectorFromAzEl(o.az, o.el),
                     volume: (typeof o.volume === 'number') ? Math.max(0, Math.min(1, o.volume)) : 1,
                     level: unpackLevel(o.level),
@@ -3006,6 +3067,37 @@
             return o.lvlSmooth;
         }
 
+        // Podpis idzie tym samym filtrem, co obwiednia, tylko na krycie napisu. Pojawia się
+        // szybko (ENV_ATTACK), gaśnie wolno (ENV_RELEASE) — dzięki temu źródło krążące wokół
+        // granicy widoczności nie miga napisem przy każdym przejściu.
+        function smoothLabel(o, target, dt) {
+            if (o.lblSmooth === undefined || o.lblSmooth === null) { o.lblSmooth = target; return target; }
+            const tau = (target > o.lblSmooth) ? ENV_ATTACK : ENV_RELEASE;
+            const k = 1 - Math.exp(-Math.max(0, dt) / tau);
+            o.lblSmooth += (target - o.lblSmooth) * k;
+            return o.lblSmooth;
+        }
+
+        // Fala odchodząca od punktu na uderzeniu. Sama wielkość punktu niesie poziom, ale
+        // poziom przy muzyce zmienia się o kilka procent i tego nie widać; rytm widać dopiero
+        // wtedy, gdy coś od punktu ODCHODZI. Wyzwalaczem jest przyrost obwiedni, nie jej
+        // wartość — dźwięk ciągły ma świecić równo, a nie pulsować w kółko bez powodu.
+        const WAVE_SEC = 0.85;     // ile trwa jedna fala, od punktu do zaniku
+        const WAVE_TRIG = 0.13;    // skok obwiedni między klatkami uznawany za uderzenie
+        const WAVE_MIN = 0.22;     // poniżej tego poziomu uderzenia nie liczymy (szum ciszy)
+        function stepWave(o, lvl, dt) {
+            if (o.wave !== undefined && o.wave !== null) {
+                o.wave += Math.max(0, dt) / WAVE_SEC;
+                if (o.wave >= 1) { o.wave = null; }
+            }
+            const prev = (o.lvlPrev === undefined) ? lvl : o.lvlPrev;
+            o.lvlPrev = lvl;
+            // Nowa fala startuje od zera nawet wtedy, gdy poprzednia jeszcze idzie —
+            // inaczej gęsty rytm gubiłby co drugie uderzenie.
+            if (lvl - prev > WAVE_TRIG && lvl > WAVE_MIN) { o.wave = 0; }
+            return (o.wave === undefined) ? null : o.wave;
+        }
+
         function sampleLevel(level, timeSec) {
             if (!level) { return null; }
             const x = timeSec * level.hz;
@@ -3043,7 +3135,9 @@
             const da = ((path.az[j] - a0 + 540) % 360) - 180;
             const el0 = path.el ? path.el[i] : 0;
             const el1 = path.el ? path.el[j] : 0;
-            return dirVectorFromAzEl(a0 + da * f, el0 + (el1 - el0) * f);
+            const v = dirVectorFromAzEl(a0 + da * f, el0 + (el1 - el0) * f);
+            if (path.dist) { v.d = path.dist[i] + (path.dist[j] - path.dist[i]) * f; }
+            return v;
         }
 
         // Jedno przeliczenie na klatkę — ta sama liczba obsługuje pozycję punktu i podpis.
@@ -3063,25 +3157,83 @@
                 const v = o.path ? samplePathVector(o.path, t) : o.v;
                 const r = fieldTf(v);                   // pole się obraca, głowa stoi
                 // Przód słuchacza to stale +Z, więc kąt od przodu = acos(składowej Z).
+                // Liczone na wektorze JEDNOSTKOWYM — promień odległości dokładamy dopiero
+                // przy rzucie, inaczej acos dostałby liczbę spoza [-1, 1] i kąt by skłamał.
                 const ang = Math.acos(Math.max(-1, Math.min(1, r.z))) / D2R;
+                // Odległość: ze ścieżki, gdy ją niesie, inaczej z pierwszej klatki obiektu.
+                const dist = (v.d > 0) ? v.d : o.dist;
+                const rp = promienWizualny(dist);
+                const rr = (rp === 1) ? r : { x: r.x * rp, y: r.y * rp, z: r.z * rp };
                 const raw = sampleLevel(o.level, t);
-                out.push({ o: o, r: r, p: project(r), ang: ang, lvl: smoothEnv(o, raw, dt) });
+                const lvl = smoothEnv(o, raw, dt);
+                const fr = { o: o, r: r, p: project(rr), ang: ang, lvl: lvl, dist: dist,
+                             wave: stepWave(o, (lvl === null) ? 0 : lvl, dt) };
+                // Krycie podpisu wygładzane tym samym filtrem, co obwiednia — bez tego
+                // ruchome źródło mruga napisem przy każdym przejściu przez granicę
+                // LABEL_ZERO_DEG. dt jest tylko tutaj, więc liczymy je razem z resztą klatki.
+                // Głębia sprowadzona z powrotem do kuli jednostkowej. Podpisy pytają o to,
+                // czy punkt jest z przodu, czy zza pleców — a nie o to, jak daleko leży,
+                // więc nie mogą dostać `p.z` rozciągniętego promieniem odległości.
+                fr.pz1 = (rp === 1) ? fr.p.z : fr.p.z / rp;
+                fr.labelA = smoothLabel(o, sceneLabelAlpha(fr), dt);
+                out.push(fr);
             }
             return out;
         }
 
+        // Punkt ma nie tyle byc rysowany, co ŚWIECIĆ — dźwięk jest źródłem światła.
+        // Stąd trzy warstwy kładzione addytywnie (composite 'lighter'), bo tak zachowuje się
+        // światło: nakładające się poświaty jaśnieją, zamiast przykrywać się nawzajem.
+        //   1. halo — miękka poświata, rośnie i jaśnieje z poziomem,
+        //   2. rdzeń — jasny środek, przy głośnych chwilach bielejący ku białemu cyanowi,
+        //   3. fala — pierścień odchodzący na uderzeniu (patrz stepWave).
+        // Pierscien promieniowania zależny od rzędu pola zostaje, bo to on niesie
+        // informację o rzędzie ambisonii, a nie o dźwięku.
         function drawSceneDot(fr) {
             const ctx = field.ctx;
             const lvl = (fr.lvl === null) ? 0.55 : fr.lvl;      // brak obwiedni = punkt spokojny
             const base = 0.4 + 0.6 * fr.o.volume;               // suwak głośności z Explorera
             const amp = pulseAmp();                             // im nizszy rzad, tym wieksza amplituda
             const r = (3.0 + amp * lvl) * fr.p.s;
+
             ctx.save();
-            ctx.shadowColor = 'rgba(0,229,204,' + (0.3 + 0.6 * lvl).toFixed(3) + ')';
-            ctx.shadowBlur = 6 + 2 * amp * lvl;
-            ctx.fillStyle = 'rgba(0,229,204,' + ((0.35 + 0.65 * lvl) * base).toFixed(3) + ')';
+            ctx.globalCompositeOperation = 'lighter';
+
+            // 1. HALO. Gradient, nie shadowBlur — shadowBlur nie da się wyskalować z poziomem
+            // bez skoków, a gradient jest tani i wygląda jak światło, nie jak rozmycie.
+            const rh = r * (2.8 + 2.2 * lvl);
+            const halo = ctx.createRadialGradient(fr.p.x, fr.p.y, 0, fr.p.x, fr.p.y, rh);
+            const a1 = (0.30 + 0.45 * lvl) * base;
+            halo.addColorStop(0, 'rgba(0,229,204,' + a1.toFixed(3) + ')');
+            halo.addColorStop(0.35, 'rgba(0,229,204,' + (a1 * 0.35).toFixed(3) + ')');
+            halo.addColorStop(1, 'rgba(0,229,204,0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath(); ctx.arc(fr.p.x, fr.p.y, rh, 0, Math.PI * 2); ctx.fill();
+
+            // 2. RDZEŃ. Środek jaśnieje ku bieli dopiero przy głośnych chwilach — to jest ten
+            // moment, w którym dzwiek blyska, i on musi być rzadki, żeby coś znaczył.
+            const bialy = Math.max(0, (lvl - 0.55) / 0.45);
+            const rdzen = ctx.createRadialGradient(fr.p.x, fr.p.y, 0, fr.p.x, fr.p.y, r);
+            rdzen.addColorStop(0, 'rgba(' + Math.round(150 * bialy) + ',255,' +
+                                  Math.round(228 + 22 * bialy) + ',' + ((0.55 + 0.45 * lvl) * base).toFixed(3) + ')');
+            rdzen.addColorStop(0.6, 'rgba(0,229,204,' + ((0.45 + 0.5 * lvl) * base).toFixed(3) + ')');
+            rdzen.addColorStop(1, 'rgba(0,229,204,' + (0.18 * base).toFixed(3) + ')');
+            ctx.fillStyle = rdzen;
             ctx.beginPath(); ctx.arc(fr.p.x, fr.p.y, r, 0, Math.PI * 2); ctx.fill();
+
+            // 3. FALA. Kwadrat zaniku, żeby uderzenie było mocne u źródła i miękko gasło
+            // na zewnątrz; grubość też maleje, inaczej pierścień na końcu wygląda jak obwódka.
+            if (fr.wave !== null && fr.wave !== undefined) {
+                const w = fr.wave;
+                const zanik = (1 - w) * (1 - w);
+                ctx.strokeStyle = 'rgba(0,229,204,' + (0.5 * zanik * base).toFixed(3) + ')';
+                ctx.lineWidth = Math.max(0.4, 2.0 * zanik) * fr.p.s;
+                ctx.beginPath();
+                ctx.arc(fr.p.x, fr.p.y, r * (1.4 + 3.6 * w), 0, Math.PI * 2);
+                ctx.stroke();
+            }
             ctx.restore();
+
             // Pierscien "promieniowania": im nizszy rzad pola, tym dalej odchodzi od punktu.
             ctx.strokeStyle = 'rgba(0,229,204,' + ((0.10 + 0.28 * lvl) * base).toFixed(3) + ')';
             ctx.lineWidth = 1.2;
@@ -3104,7 +3256,7 @@
             if (state.labelMode === 'always') {
                 // Stałe podpisy: przygaszamy dalszą półkulę, tak samo jak litery kierunków,
                 // inaczej napisy zza pleców biją się o uwagę z tymi z przodu.
-                const near = (1 - fr.p.z) / 2;
+                const near = (1 - ((fr.pz1 === undefined) ? fr.p.z : fr.pz1)) / 2;
                 return 0.4 + 0.55 * near;
             }
             return labelOpacity(fr.ang);
@@ -3140,7 +3292,8 @@
         function drawSceneLabels(frames) {
             const vis = [];
             for (const fr of frames) {
-                const a = sceneLabelAlpha(fr);
+                // Krycie policzone i wygładzone w sceneObjectFrame, gdzie jest dt.
+                const a = (fr.labelA === undefined || fr.labelA === null) ? sceneLabelAlpha(fr) : fr.labelA;
                 if (a > 0.02) { vis.push({ fr: fr, a: a }); }
             }
             if (!vis.length) { return; }
