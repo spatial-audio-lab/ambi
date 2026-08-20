@@ -1949,10 +1949,15 @@
         // i obwiednią głośności każdego nagrania. Dzięki temu odtwarzacz może zapalić na kuli
         // podpisane punkty pulsujące w rytm konkretnego dźwięku, a nie wspólnego miksu.
         //
-        // Od formatu v2 (Scena, 20.08.2026) źródło może nieść ścieżkę czasową "path"
-        // (az/el/dist próbkowane w path.hz). Pozycja punktu jest wtedy odpytywana co klatkę,
-        // tak samo jak obwiednia głośności. az/el na poziomie obiektu to pierwsza klatka —
-        // zostaje jako pozycja startowa i fallback dla plików bez ruchu (frozen: true).
+        // Od formatu v2 (Scena, 20.08.2026) źródło może nieść ścieżkę czasową "path".
+        // Pozycja punktu jest wtedy odpytywana co klatkę, tak samo jak obwiednia głośności.
+        // az/el na poziomie obiektu to pierwsza klatka — zostaje jako pozycja startowa
+        // i fallback dla plików bez ruchu (frozen: true).
+        //
+        // Czytamy dwa pokolenia formatu, rozpoznawane po kształcie pól, nie po numerze wersji:
+        // v3 (x/y/h, 10 kl./s, level w base64) i v2 (az/el/dist, 50 kl./s, level dziesiętnie).
+        // Każdy blok deklaruje własne `hz`, więc rzadsza ścieżka i gęsta obwiednia żyją obok
+        // siebie bez wspólnego licznika klatek.
 
         const LEVEL_DEFAULT_HZ = 50;
         // Podpis: pełna widoczność do LABEL_FULL_DEG, kosinusowe zejście do zera przy LABEL_ZERO_DEG.
@@ -1966,38 +1971,71 @@
             return { x: -ce * Math.sin(az), y: Math.sin(el), z: ce * Math.cos(az) };
         }
 
+        // Ta sama zamiana osi, co wyżej, tylko wejście jest kartezjańskie (ścieżka v3):
+        // px w prawo od słuchacza, py do przodu, h w górę. Odległość nie jest tu potrzebna —
+        // na kuli liczy się sam kierunek, więc wektor od razu wychodzi znormalizowany.
+        function dirVectorFromXY(px, py, h) {
+            const d = Math.hypot(px, py, h) || 1;
+            return { x: px / d, y: h / d, z: py / d };
+        }
+
+        // base64 -> bajty. Plik wskazuje użytkownik, więc zły zapis ma skończyć jako brak
+        // obwiedni (punkt spokojny), a nie jako wyjątek w pętli rysowania.
+        function b64ToBytes(s) {
+            try {
+                const bin = atob(s);
+                const out = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i); }
+                return out;
+            } catch (error) { return null; }
+        }
+
         // uint8 w skali decybelowej -> 0..1. dbFloor z pliku, bo eksporter może go zmienić.
+        // Dwa zapisy tej samej tablicy: v2 dziesiętnie, v3 w base64 (encoding uint8-db-b64).
+        // Rozpoznajemy po kształcie pola, nie po numerze wersji — plik z jednym blokiem
+        // przepisanym ręcznie ma się otworzyć tak samo.
         function unpackLevel(lv) {
-            if (!lv || !Array.isArray(lv.values) || !lv.values.length) { return null; }
-            const out = new Float32Array(lv.values.length);
+            if (!lv) { return null; }
+            const src = (typeof lv.values === 'string') ? b64ToBytes(lv.values) : lv.values;
+            if (!src || !src.length || (!Array.isArray(src) && !(src instanceof Uint8Array))) { return null; }
+            const out = new Float32Array(src.length);
             for (let i = 0; i < out.length; i++) {
-                const v = Number(lv.values[i]);
+                const v = Number(src[i]);
                 out[i] = isFinite(v) ? Math.max(0, Math.min(1, v / 255)) : 0;
             }
             return { hz: (lv.hz > 0 ? lv.hz : LEVEL_DEFAULT_HZ), values: out };
         }
 
-        // Ścieżka ruchu z formatu v2: tablice az/dist obowiązkowe, el pomijane przez
-        // eksporter, gdy wysokość jest zerowa przez cały eksport. dist nie wpływa na
-        // kierunek punktu na kuli, więc go nie trzymamy. Wzór walidacji jak w unpackLevel:
-        // złe albo puste dane -> null i punkt zostaje na pozycji startowej.
+        function toF32(arr) {
+            const out = new Float32Array(arr.length);
+            for (let i = 0; i < out.length; i++) {
+                const v = Number(arr[i]);
+                out[i] = isFinite(v) ? v : 0;
+            }
+            return out;
+        }
+
+        // Ścieżka ruchu źródła. Dwa formaty, rozpoznawane po kształcie, nie po numerze wersji:
+        //
+        //   v3 — kartezjańska: x w prawo, y do przodu (układ słuchacza z chwili eksportu),
+        //        h stała wysokość, zwykle 10 klatek na sekundę.
+        //   v2 — biegunowa: az obowiązkowe, el pomijane przez eksporter przy płaskiej scenie,
+        //        dist ignorowane (nie wpływa na kierunek punktu na kuli), 50 klatek na sekundę.
+        //
+        // v2 czytamy dalej, bo pliki nagrane między 20.08 a zmianą formatu już istnieją.
+        // Walidacja jak w unpackLevel: złe albo puste dane -> null i punkt zostaje na pozycji
+        // startowej z pól az/el obiektu.
         function unpackPath(p) {
-            if (!p || !Array.isArray(p.az) || !p.az.length || !(p.hz > 0)) { return null; }
-            const n = p.az.length;
-            const az = new Float32Array(n);
-            for (let i = 0; i < n; i++) {
-                const v = Number(p.az[i]);
-                az[i] = isFinite(v) ? v : 0;
+            if (!p || !(p.hz > 0)) { return null; }
+            if (Array.isArray(p.x) && Array.isArray(p.y) && p.x.length && p.x.length === p.y.length) {
+                const h = Number(p.h);
+                return { hz: p.hz, kind: 'xy', x: toF32(p.x), y: toF32(p.y), h: isFinite(h) ? h : 0 };
             }
-            let el = null;
-            if (Array.isArray(p.el) && p.el.length === n) {
-                el = new Float32Array(n);
-                for (let i = 0; i < n; i++) {
-                    const v = Number(p.el[i]);
-                    el[i] = isFinite(v) ? v : 0;
-                }
+            if (Array.isArray(p.az) && p.az.length) {
+                const el = (Array.isArray(p.el) && p.el.length === p.az.length) ? toF32(p.el) : null;
+                return { hz: p.hz, kind: 'azel', az: toF32(p.az), el: el };
             }
-            return { hz: p.hz, az: az, el: el };
+            return null;
         }
 
         // Polska odmiana liczebnika: 1 obiekt · 2 obiekty · 5 obiektów.
@@ -2979,23 +3017,33 @@
             return level.values[i] + (level.values[i + 1] - level.values[i]) * f;
         }
 
-        // Pozycja ze ścieżki ruchu w chwili t. Ten sam clamp co w sampleLevel: po końcu
-        // ścieżki punkt stoi na ostatniej klatce, a nie znika. Azymut interpolowany po
-        // krótszym łuku — bez tego przejście -179° -> +179° przeciąga punkt przez cały przód.
-        function samplePath(path, timeSec) {
+        // Kierunek źródła ze ścieżki ruchu w chwili t, jako wektor gotowy dla fieldTf.
+        // Ten sam clamp co w sampleLevel: po końcu ścieżki punkt stoi na ostatniej klatce,
+        // a nie znika.
+        //
+        // Interpolujemy w tym układzie, w którym plik zapisał ścieżkę, i to nie jest
+        // szczegół: dla v3 liniowo po x/y (prosta droga między klatkami), dla v2 po kątach,
+        // gdzie azymut trzeba prowadzić KRÓTSZYM łukiem — inaczej przejście -179° -> +179°
+        // przeciąga punkt przez cały przód sceny zamiast przez tył.
+        function samplePathVector(path, timeSec) {
+            const xy = (path.kind === 'xy');
             const x = timeSec * path.hz;
-            const last = path.az.length - 1;
+            const last = (xy ? path.x.length : path.az.length) - 1;
             let i = 0, f = 0;
             if (isFinite(x) && x > 0) {
                 i = Math.min(last, Math.floor(x));
                 f = Math.min(1, x - i);
             }
             const j = Math.min(last, i + 1);
+            if (xy) {
+                return dirVectorFromXY(path.x[i] + (path.x[j] - path.x[i]) * f,
+                                       path.y[i] + (path.y[j] - path.y[i]) * f, path.h);
+            }
             const a0 = path.az[i];
             const da = ((path.az[j] - a0 + 540) % 360) - 180;
             const el0 = path.el ? path.el[i] : 0;
             const el1 = path.el ? path.el[j] : 0;
-            return { az: a0 + da * f, el: el0 + (el1 - el0) * f };
+            return dirVectorFromAzEl(a0 + da * f, el0 + (el1 - el0) * f);
         }
 
         // Jedno przeliczenie na klatkę — ta sama liczba obsługuje pozycję punktu i podpis.
@@ -3012,8 +3060,7 @@
             for (const o of state.sceneObjects) {
                 // Ścieżka jest w układzie słuchacza z chwili eksportu, czyli PRZED obrotem
                 // pola — kolejność path -> wektor -> fieldTf jest właściwa, nie odwracać.
-                const pos = o.path ? samplePath(o.path, t) : null;
-                const v = pos ? dirVectorFromAzEl(pos.az, pos.el) : o.v;
+                const v = o.path ? samplePathVector(o.path, t) : o.v;
                 const r = fieldTf(v);                   // pole się obraca, głowa stoi
                 // Przód słuchacza to stale +Z, więc kąt od przodu = acos(składowej Z).
                 const ang = Math.acos(Math.max(-1, Math.min(1, r.z))) / D2R;
