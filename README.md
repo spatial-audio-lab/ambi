@@ -77,21 +77,25 @@ Własny dekoder WAV dla plików wielokanałowych, których `decodeAudioData` nie
 Settings → Pages → Source: **Deploy from a branch** → `main` → `/ (root)`.
 Plik `.nojekyll` zapewnia poprawne serwowanie katalogu `assets/`.
 
-## Licencja
-
-MIT — patrz [LICENSE](LICENSE).
 
 ---
-![Zestawienie logotypów KPO, RP i UE](assets/kpo/KPO.jpg)
 
-# Spatial Audio Lab: archiwum VR dla edukacji teatralnej
 
-### O projekcie
+# O projekcie
+
+[![Baner SAL](https://raw.githubusercontent.com/spatial-audio-lab/spatial-audio-lab.github.io/main/assets/brand/SAL_logo-wordmark.png)](https://spatial-audio-lab.github.io/)
+
+## Spatial Audio Lab: archiwum VR dla edukacji teatralnej
 „Spatial Audio Lab” to projekt stypendialny skupiony na tworzeniu profesjonalnego archiwum dźwięku przestrzennego. W ramach działań powstaje baza nagrań w technologii Virtual Reality (VR), która łączy nowoczesną inżynierię dźwięku z edukacją teatralną i technikami uważności (mindfulness).
 
-https://spatial-audio-lab.github.io/
+[https://spatial-audio-lab.github.io/](https://spatial-audio-lab.github.io/)
 
 ---
+
+## Finansowanie
+
+![Zestawienie logotypów KPO, RP i UE](https://raw.githubusercontent.com/spatial-audio-lab/spatial-audio-lab.github.io/main/KPO.jpg)
+
 ## Informacja o finansowaniu
 
 Projekt jest realizowany w ramach programu stypendialnego Krajowego Planu Odbudowy i Zwiększania Odporności (KPO).
@@ -99,3 +103,10 @@ Projekt jest realizowany w ramach programu stypendialnego Krajowego Planu Odbudo
 - **Program:** Inwestycja A2.5.1: Program wspierania działalności podmiotów sektora kultury i przemysłów kreatywnych na rzecz stymulowania ich rozwoju.
 - **Instytucja Wspierająca:** Narodowy Instytut Muzyki i Tańca (NIMiT).
 - **Wartość dofinansowania z Unii Europejskiej (NextGenerationEU):** 36 000,00 zł brutto.
+- Umowa nr **143/KPO.STYPENDIA/NIMIT/2025**.
+
+## Licencja
+
+MIT — patrz [LICENSE](LICENSE).
+
+
