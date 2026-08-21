@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sfera — Spatial Audio Lab</title>
 
+    <link rel="icon" href="assets/brand/icon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="assets/brand/icon-16.png" sizes="16x16" type="image/png" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="alternate icon" href="favicon.ico" />
     <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -56,159 +57,173 @@
     a { color: var(--cyan); }
 
     /* ---------- Minimalny nagłówek narzędzia (manifest §08) ---------- */
-    .tool-header {
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: wrap;
-        padding: 14px 24px;
-        background: var(--black);
-        border-bottom: 1px solid var(--border2);
+    /* ========================================================================
+       PASEK MARKI SAL v3.1 (manifest §08)
+       Wzorzec: "SAL Brand System.dc.html" (18.08) i implementacja referencyjna
+       w sekwencerze: src/styles/header.css + src/js/header.js.
+       Uklad: [pigulka SAL] | (dioda) NAZWA | opis .................. zakladki
+       Wymiary sa czescia wzorca, nie propozycja — pasek ma wygladac identycznie
+       we wszystkich siedmiu aplikacjach laboratorium.
+       ======================================================================== */
+    @keyframes salPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.55; transform: scale(0.82); }
     }
-    /* Pasek marki SAL v3.1 — wzorzec wspolny dla wszystkich narzedzi laboratorium:
-       [ikona apki | <- SAL] | (dioda) NAZWA opis ... zakladki · status Audio Context
-       Ikona lezy w assets/brand/ TEGO repozytorium i jest adresowana wzglednie. Do v3.0
-       szla ze wspolnego /assets/ Hubu, co oszczedzalo duplikat binarium, ale kosztowalo
-       widocznosc przy otwarciu z dysku (file:// pokazywalo sam tekst alt). v3.1 daje kazdej
-       apce wlasny WARIANT KOLORYSTYCZNY ikony, wiec wspolny plik i tak przestal wystarczac
-       — a przy okazji znika tamten koszt. */
-    .tool-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-    .back-hub {
-        display: inline-flex; align-items: center; gap: 8px;
-        font-family: var(--mono);
-        font-weight: 500;
-        font-size: 0.68rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--acid);
-        text-decoration: none;
-        border: 1px solid var(--acid-dim);
-        border-radius: 999px;
-        padding: 0 14px;
-        min-height: 44px;
+    @keyframes salRing {
+        0% { opacity: 0.55; transform: scale(1); }
+        100% { opacity: 0; transform: scale(2.6); }
+    }
+    .sal-bar {
+        flex-shrink: 0; display: flex; align-items: stretch;
+        height: 68px; padding: 0 20px;
+        background: var(--black); border-bottom: 1px solid var(--border2);
+        font-family: var(--display); position: relative; z-index: 40;
+        transition: box-shadow .2s ease;
+    }
+    .sal-bar.is-playing { box-shadow: inset 0 -1px 0 rgba(190,255,0,0.1); }
+    .sal-bar-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+
+    /* Pigulka jest linkiem do Hubu. Acid siedzi WYLACZNIE na literze L — znak zostaje
+       kremowy, ramka neutralna. Marka laboratorium nie miesza sie z sygnalami wnetrza. */
+    .sal-pill {
+        display: flex; align-items: center; gap: 11px;
+        padding: 7px 14px 7px 9px; border: 1px solid var(--border2);
+        text-decoration: none; flex: none;
+    }
+    .sal-pill-mark { height: 38px; width: auto; display: block; }
+    .sal-pill-text {
+        font-family: var(--display); font-weight: 800; font-size: 20px;
+        letter-spacing: 0.01em; line-height: 1; color: var(--cream);
+    }
+    .sal-acid { color: var(--acid); }
+
+    .sal-sep { width: 1px; height: 34px; background: var(--border2); margin: 0 20px; flex: none; }
+    .sal-sep--inline { height: 20px; margin: 0 18px; }
+
+    /* Dioda niesie caly stan dzwieku — dlatego w pasku NIE MA juz napisu
+       "Audio Context". Decyzja Oskara 18.08, ta sama co w sekwencerze. */
+    .sal-status-dot {
+        position: relative; width: 11px; height: 11px; flex: none; margin-right: 16px;
+        border-radius: 50%; background: rgba(240,235,224,0.18);
+        border: 1px solid rgba(240,235,224,0.28);
+    }
+    .sal-status-dot.is-playing { background: var(--cyan); border: none; animation: salPulse 1.5s ease-in-out infinite; }
+    .sal-status-dot.is-playing::after {
+        content: ''; position: absolute; inset: -1px; border-radius: 50%;
+        border: 1px solid var(--cyan); animation: salRing 1.5s ease-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .sal-status-dot, .sal-status-dot.is-playing, .sal-status-dot.is-playing::after { animation: none !important; }
+    }
+
+    .sal-name-wrap { display: flex; align-items: baseline; min-width: 0; }
+    .sal-name {
+        font-family: var(--display); font-weight: 700; font-size: 22px;
+        letter-spacing: -0.01em; line-height: 1; color: var(--cream); white-space: nowrap;
+    }
+    .sal-desc {
+        font-family: var(--display); font-weight: 300; font-size: 15px; line-height: 1.2;
+        color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .sal-tabs {
+        display: flex; align-items: stretch; gap: 26px; flex: none; margin-left: 32px;
+        font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .sal-tab {
+        display: flex; align-items: center; color: var(--dim);
+        border: none; border-bottom: 2px solid transparent; background: none;
+        text-decoration: none; cursor: pointer; font-family: inherit; font-size: inherit;
+        letter-spacing: inherit; text-transform: inherit;
         transition: color .2s ease, border-color .2s ease;
-        white-space: nowrap;
-        flex-shrink: 0;
     }
-    .back-hub:hover { border-color: var(--acid); background: rgba(190,255,0,0.08); }
-    .back-hub img { width: 18px; height: 18px; display: block; flex-shrink: 0; border-radius: 3px; }
-    .tool-sep { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
-    /* Dioda stanu przy nazwie — ten sam stan co napis Audio Context po prawej,
-       ale widoczna takze wtedy, gdy napis zniknie na waskim ekranie (manifest §12). */
-    .tool-dot {
-        width: 8px; height: 8px; border-radius: 50%;
-        background: var(--dim); flex-shrink: 0;
-        transition: background .25s ease, box-shadow .25s ease;
-    }
-    .tool-header.running .tool-dot { background: var(--cyan); box-shadow: 0 0 8px rgba(0,229,204,0.6); }
-    .tool-name {
-        font-family: var(--display);
-        font-weight: 700;
-        font-size: 0.95rem;
-        letter-spacing: 0.01em;
-        color: var(--cream);
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-    .tool-desc {
-        font-family: var(--mono);
-        font-weight: 300;
-        font-size: 0.78rem;   /* 12.5px — manifest §12 nie pozwala zejsc ponizej 12px */
-        letter-spacing: 0.02em;
-        color: var(--dim);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        min-width: 0;
-    }
-    .ac-status {
-        display: flex; align-items: center; gap: 8px;
-        font-family: var(--mono); font-size: 0.68rem;
-        letter-spacing: 0.04em; color: var(--dim);
-        white-space: nowrap; flex-shrink: 0;
-    }
-    .tool-header.running .ac-status { color: var(--cyan); }
+    .sal-tab:hover { color: var(--cream); }
+    .sal-tab.is-active { color: var(--acid); border-bottom: 2px solid var(--acid); }
 
-    /* --- §08 v3.1: zakladki po prawej stronie paska. Kolejnosc jest celowa i taka sama
-       w kazdej aplikacji laboratorium: POMOC, potem O PROJEKCIE na samym koncu.
-       Uzytkownik przechodzacy miedzy Scena a Sfera ma je zawsze w tym samym miejscu. --- */
-    .tool-header-right { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
-    .nav-link {
-        font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em;
-        text-transform: uppercase; color: var(--dim);
-        background: none; border: none; cursor: pointer;
-        min-height: 44px; display: inline-flex; align-items: center;
-        transition: color .25s ease;
+    .sal-burger {
+        display: none; flex-direction: column; justify-content: center; gap: 4px; flex: none;
+        margin-left: 10px; padding: 8px 6px; background: none; border: none; cursor: pointer;
     }
-    .nav-link:hover { color: var(--cream); }
-    .nav-link.is-open { color: var(--cyan); }
+    .sal-burger span { width: 18px; height: 1.5px; background: var(--dim); display: block; }
+    .sal-mobile-menu { display: none; }
 
-    /* --- Nakladki POMOC i O PROJEKCIE. Jeden wzorzec na obie, bo roznia sie wylacznie
-       trescia — dwie osobne implementacje tego samego okna to dokladnie ten dlug,
-       ktory ten projekt juz raz splacal. --- */
-    .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        align-items: center; justify-content: center;
-        background: rgba(10,12,8,0.92); padding: 20px;
+    @media (max-width: 380px) {
+        .sal-bar { height: 60px; padding: 0 12px; }
+        .sal-pill { padding: 5px 10px 5px 6px; gap: 8px; }
+        .sal-pill-mark { height: 30px; }
+        .sal-pill-text { font-size: 15px; }
+        .sal-sep { margin: 0 11px; }
+        .sal-status-dot { width: 9px; height: 9px; margin-right: 10px; }
+        .sal-name-wrap { flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; flex: 1; }
+        .sal-name { font-size: 16px; }
+        .sal-desc { font-size: 11.5px; max-width: 100%; }
+        .sal-sep--inline { display: none; }
+        .sal-tabs { display: none; }
+        .sal-burger { display: flex; }
+        .sal-mobile-menu.is-open {
+            display: flex; flex-direction: column; position: absolute; top: 60px; left: 0; right: 0;
+            z-index: 50; background: var(--black); border-bottom: 1px solid var(--border2);
+            padding: 8px 12px 14px; gap: 4px;
+        }
+        .sal-mobile-menu .sal-tab { padding: 10px 4px; border-bottom: 1px solid var(--border); }
     }
-    .overlay.open { display: flex; }
-    .overlay-box {
-        width: 560px; max-width: 100%; max-height: 84vh; overflow-y: auto;
-        border: 1px solid var(--border2); background: var(--black); padding: 28px;
+
+    /* ===== Modale Pomoc / O projekcie — wzorzec v3.1, sekcja "Tresc zakladek" =====
+       Wymiary i kolory 1:1 z implementacja referencyjna (sekwencer, src/styles/main.css),
+       zeby okno wygladalo tak samo we wszystkich narzedziach. Zakladki wewnatrz Pomocy sa
+       rozszerzeniem tej apki: przewodnik ma trzy czesci i w jednym oknie robil sie
+       paskiem przewijania na dwa ekrany. */
+    .sal-modal-overlay {
+        position: fixed; inset: 0; background: rgba(10,12,8,0.82); display: none;
+        align-items: flex-start; justify-content: center; z-index: 60;
+        padding: 5vh 24px; overflow-y: auto;
     }
-    .overlay-box h2 {
-        font-family: var(--display); font-size: 1.7rem; font-weight: 300;
-        color: var(--cream); margin-bottom: 18px;
+    .sal-modal-overlay.is-open { display: flex; }
+    .sal-modal {
+        position: relative; background: var(--bg2); border: 1px solid var(--border2);
+        border-radius: 0; max-width: 640px; width: 100%; padding: 40px;
     }
-    .overlay-box h2 em { font-style: italic; color: var(--cyan); }
-    .overlay-box h3 {
-        font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.2em;
-        text-transform: uppercase; color: var(--amber); font-weight: 500;
-        margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border2);
+    .sal-modal-close {
+        position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; min-height: 0;
+        display: flex; align-items: center; justify-content: center; background: transparent;
+        border: 1px solid var(--border2); color: var(--dim); cursor: pointer; font-size: 0.9rem;
+        transition: color .2s ease, border-color .2s ease;
     }
-    .overlay-box p { font-size: 0.9rem; line-height: 1.75; color: var(--cream); margin-bottom: 9px; opacity: .95; }
-    .overlay-box b, .overlay-box strong { color: var(--cream); font-weight: 600; }
-    .overlay-box em { font-style: normal; color: var(--amber); }
-    .overlay-box a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid var(--cyan-dim); }
-    .overlay-box a:hover { border-bottom-color: var(--cyan); }
-    .overlay-box kbd {
+    .sal-modal-close:hover { color: var(--cream); border-color: var(--cyan); }
+    .sal-modal-h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; color: var(--cream); margin-bottom: 24px; }
+    .sal-modal-h3 {
+        font-family: var(--mono); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.15em;
+        text-transform: uppercase; color: var(--cyan); margin: 24px 0 12px;
+    }
+    .sal-modal-h2 + .sal-modal-h3 { margin-top: 0; }
+    .sal-modal p { font-family: var(--display); font-size: 0.85rem; line-height: 1.75; color: #C9C4B8; margin: 0 0 16px; }
+    .sal-modal p:last-child { margin-bottom: 0; }
+    .sal-modal strong, .sal-modal b { color: var(--cream); font-weight: 600; }
+    .sal-modal em { font-style: normal; color: var(--amber); }
+    .sal-modal a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid var(--cyan-dim); }
+    .sal-modal a:hover { border-bottom-color: var(--cyan); }
+    .sal-modal kbd {
         display: inline-block; padding: 2px 6px; border: 1px solid var(--border2);
         font-family: var(--mono); font-size: 0.7rem; color: var(--cyan);
     }
-    .ov-tabs { display: flex; border: 1px solid var(--border2); margin-bottom: 6px; }
+    .sal-modal-meta { display: flex; flex-direction: column; gap: 10px; font-family: var(--mono); font-size: 0.78rem; }
+    .sal-modal-meta > div { display: flex; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .sal-modal-meta dt { color: var(--dim); min-width: 130px; flex: none; }
+    .sal-modal-meta dd { color: var(--cream); margin: 0; }
+    /* §13: belka logotypow zawsze na BIALYM tle — warunek programu, nie estetyka. */
+    .sal-kpo-strip { background: #fff; padding: 16px; margin: 20px 0; }
+    .sal-kpo-strip img { display: block; width: 100%; height: auto; }
+
+    .ov-tabs { display: flex; border: 1px solid var(--border2); margin-bottom: 20px; }
     .ov-tab {
-        flex: 1; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+        flex: 1; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em;
         text-transform: uppercase; padding: 11px 8px; background: none; color: var(--dim);
-        border: none; border-right: 1px solid var(--border2); cursor: pointer;
-        min-height: 44px; transition: color .25s ease, background .25s ease;
+        border: none; border-right: 1px solid var(--border2); cursor: pointer; min-height: 44px;
+        transition: color .25s ease, background .25s ease;
     }
     .ov-tab:last-child { border-right: none; }
     .ov-tab:hover { color: var(--cream); }
-    .ov-tab.active { color: var(--cyan); background: rgba(0,229,204,0.07); }
-    .ov-close {
-        font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em;
-        text-transform: uppercase; padding: 11px 22px; margin-top: 22px;
-        border: 1px solid var(--border2); background: none; color: var(--dim);
-        cursor: pointer; min-height: 44px; transition: color .3s ease, border-color .3s ease;
-    }
-    .ov-close:hover { border-color: var(--cyan); color: var(--cyan); }
-
-    /* --- §13 oznakowanie KPO/UE. Belka logotypow ma bezwzglednie stac na BIALYM tle —
-       to warunek programu, nie decyzja estetyczna, wiec kontener dostaje wlasne tlo
-       niezalezne od motywu aplikacji. Grafika siedzi w pliku jako data URI, a nie jako
-       Grafika lezy w assets/brand/ tego repozytorium i jest adresowana WZGLEDNIE, a nie od
-       roota Hubu: oznakowanie finansowania musi sie narysowac takze wtedy, gdy ktos otworzy
-       plik prosto z dysku. To jedyny wyjatek od zasady "binaria trzymamy raz, w Hubie" i ma
-       swoj powod — reszta ikon moze zniknac bez szkody, ta belka nie. --- */
-    .kpo-strip { background: #FFFFFF; padding: 14px 16px; margin-top: 20px; border-radius: 2px; }
-    .kpo-strip img { display: block; width: 100%; height: auto; }
-    .about-meta { margin: 14px 0 18px; border-top: 1px solid var(--border2); }
-    .about-row { display: flex; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border2); font-size: 0.85rem; }
-    .about-key { flex: 0 0 42%; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
-    .about-val { color: var(--cream); }
-
+    .ov-tab.active { color: var(--acid); background: rgba(190,255,0,0.07); }
     /* ---------- Układ: EKRAN (lewo) / KONTROLKI (prawo) ---------- */
     .app {
         flex: 1;
@@ -726,19 +741,9 @@
        (manifest §12 — tekst nie schodzi ponizej 12px). Kolejnosc ustepowania od rzeczy
        najmniej potrzebnej: najpierw opis, potem napis statusu (dioda przy nazwie niesie
        ten sam stan), na koncu slowo SAL — zostaje sama ikona, kierunek mowi tytul linku. */
-    @media (max-width: 860px) {
-        .tool-desc { display: none; }
-    }
-    @media (max-width: 620px) {
-        .ac-status { display: none; }
-        .tool-header-right { gap: 14px; }
-    }
-    @media (max-width: 400px) {
-        .back-hub span { display: none; }
-        .back-hub { padding: 0 10px; }
-    }
+    /* Degradacja paska v3.1 siedzi w jego wlasnym bloku @media 380px — te reguly
+       dotyczyly paska v3.0 i nie maja juz do czego sie odniesc. */
     @media (max-width: 560px) {
-        .tool-header { padding: 12px 16px; }
         .panel { padding: 18px 16px; }
         .btn-row { grid-template-columns: 1fr; }
     }
@@ -746,32 +751,41 @@
 </head>
 <body>
 
-    <!-- Pasek marki SAL (manifest §08 + wzorzec z audio-shapes) -->
-    <header class="tool-header" id="toolHeader">
-        <div class="tool-header-left">
-            <a class="back-hub" href="/" title="Powrót do Spatial Audio Lab">
-                <img src="assets/brand/icon-app.png" alt="" width="18" height="18">
-                <span>&larr; SAL</span>
+    <!-- Pasek marki SAL v3.1 — wzorzec wspolny dla wszystkich narzedzi laboratorium.
+         Zrodlo: "SAL Brand System.dc.html", implementacja referencyjna: sekwencer. -->
+    <header class="sal-bar" id="salBar">
+        <div class="sal-bar-left">
+            <a href="/" class="sal-pill" title="Powrót do Hubu (Spatial Audio Lab)">
+                <img src="assets/brand/mark-cream-1024.png" alt="" class="sal-pill-mark">
+                <span class="sal-pill-text">SA<span class="sal-acid">L</span></span>
             </a>
-            <span class="tool-sep" aria-hidden="true"></span>
-            <span class="tool-dot" id="acDot" aria-hidden="true"></span>
-            <span class="tool-name">Sfera</span>
-            <span class="tool-desc">Odsłuch pola ambisonicznego</span>
+            <span class="sal-sep"></span>
+            <span class="sal-status-dot" id="salStatusDot"></span>
+            <span class="sal-name-wrap">
+                <span class="sal-name">Sfera</span>
+                <span class="sal-sep sal-sep--inline"></span>
+                <span class="sal-desc">Obróć polem ambisonicznym i zobacz źródła</span>
+            </span>
         </div>
-        <div class="tool-header-right">
-            <button class="nav-link" id="helpBtn" type="button">Pomoc</button>
-            <button class="nav-link" id="aboutBtn" type="button">O projekcie</button>
-            <div class="ac-status" id="acStatus">
-                <span id="acLabel">Audio Context: Idle</span>
-            </div>
-        </div>
+        <nav class="sal-tabs" id="salTabs" aria-label="Nawigacja narzędzia">
+            <button type="button" class="sal-tab" data-tab="pomoc" data-modal="modalPomoc">Pomoc</button>
+            <button type="button" class="sal-tab" data-tab="o-projekcie" data-modal="modalOProjekcie">O projekcie</button>
+        </nav>
+        <button class="sal-burger" id="salBurger" aria-label="Menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+        <nav class="sal-mobile-menu" id="salMobileMenu" aria-label="Nawigacja narzędzia (mobile)">
+            <button type="button" class="sal-tab" data-tab="pomoc" data-modal="modalPomoc">Pomoc</button>
+            <button type="button" class="sal-tab" data-tab="o-projekcie" data-modal="modalOProjekcie">O projekcie</button>
+        </nav>
     </header>
 
 
     <!-- ================= POMOC — przewodnik uzytkownika ================= -->
-    <div class="overlay" id="helpOverlay">
-      <div class="overlay-box">
-        <h2>Sfera &mdash; <em>przewodnik</em></h2>
+    <div class="sal-modal-overlay" id="modalPomoc" aria-hidden="true">
+      <div class="sal-modal" role="dialog" aria-modal="true" aria-labelledby="modalPomocTitle">
+        <button type="button" class="sal-modal-close" data-close-modal aria-label="Zamknij">&#10005;</button>
+        <h2 id="modalPomocTitle" class="sal-modal-h2">Pomoc</h2>
         <div class="ov-tabs" role="tablist">
           <button class="ov-tab active" id="hTabStart" role="tab" aria-selected="true" aria-controls="hStart">Zacznij tutaj</button>
           <button class="ov-tab" id="hTabPanels" role="tab" aria-selected="false" aria-controls="hPanels">Panele</button>
@@ -779,89 +793,102 @@
         </div>
 
         <div id="hStart" role="tabpanel">
-          <h3>Do czego służy Sfera</h3>
+          <h3 class="sal-modal-h3">Do czego służy Sfera</h3>
           <p><strong>Sfera</strong> odtwarza nagrania ambisoniczne i pozwala <strong>obracać całym polem dźwiękowym</strong> wokół nieruchomej głowy &mdash; tak, jakbyś chwycił kulę i nią obrócił. Kula na ekranie to nie dekoracja: punkty na niej pokazują, skąd naprawdę dochodzi dźwięk w pliku.</p>
           <p>Nic nie jest wysyłane na serwer. Plik zostaje w Twojej przeglądarce.</p>
 
-          <h3>Załóż słuchawki</h3>
+          <h3 class="sal-modal-h3">Załóż słuchawki</h3>
           <p>To nie jest zalecenie, tylko warunek działania. Efekt przestrzenny powstaje z różnicy między tym, co słyszy lewe i prawe ucho. Na głośnikach oba kanały mieszają się w powietrzu i cała informacja o kierunku znika.</p>
 
-          <h3>Trzy kroki</h3>
+          <h3 class="sal-modal-h3">Trzy kroki</h3>
           <p>1. Przeciągnij plik audio na kulę albo użyj przycisku <em>Wybierz plik</em> po prawej. Obsługiwane: WAV, MP3, OGG, Opus, FLAC, M4A, AAC, WebM.</p>
           <p>2. Naciśnij <kbd>Spacja</kbd>, żeby odtworzyć.</p>
           <p>3. Złap kulę myszą i obróć. Dźwięk pojedzie dokładnie tam, gdzie jedzie punkt: w prawo znaczy w prawo.</p>
 
-          <h3>Jakie pliki tu pasują</h3>
+          <h3 class="sal-modal-h3">Jakie pliki tu pasują</h3>
           <p>Sfera rozpoznaje rodzaj pliku po jego nagłówku, sama, bez pytania.</p>
           <p><strong>Pliki 4-kanałowe (AmbiX, ambisonia 1. rzędu)</strong> &mdash; pełne pole dźwiękowe. Dostają dekoder ambisoniczny i to one dają obracanie. Obsługiwane są też wyższe rzędy: 9 kanałów (2. rząd) i 16 kanałów (3. rząd).</p>
           <p><strong>Pliki 2-kanałowe (binauralne)</strong> &mdash; grają bez zmian, bo kierunki są już w nich zapisane na stałe. Obracać ich się nie da i to nie jest usterka: w takim pliku nie ma już z czego policzyć obrotu.</p>
           <p>Jeśli masz plik ze <strong>Sceny</strong>, ten do obracania nazywa się <em>AMBIX</em>.</p>
 
-          <h3>Gdy coś brzmi nie tak</h3>
+          <h3 class="sal-modal-h3">Gdy coś brzmi nie tak</h3>
           <p>Rozwiń <strong>Test orientacji</strong> po prawej. Odtwarza impulsy szumu zakodowane kolejno na sześć kierunków &mdash; jeśli słyszysz je tam, gdzie pokazuje napis i gdzie zapala się punkt, dekoder i osie działają poprawnie. Test nie wymaga wczytanego pliku.</p>
         </div>
 
         <div id="hPanels" role="tabpanel" style="display:none">
-          <h3>Odtwarzanie</h3>
+          <h3 class="sal-modal-h3">Odtwarzanie</h3>
           <p><kbd>Spacja</kbd> odtwarza i pauzuje. Strzałki <kbd>&larr;</kbd><kbd>&rarr;</kbd> przewijają o 5 sekund, <kbd>PageUp</kbd> i <kbd>PageDown</kbd> o 30 sekund, <kbd>Home</kbd> wraca na początek. Pasek postępu można też złapać klawiszem <kbd>Tab</kbd> i przewijać strzałkami.</p>
 
-          <h3>Rotacja pola</h3>
+          <h3 class="sal-modal-h3">Rotacja pola</h3>
           <p><strong>Yaw</strong> to obrót w lewo i w prawo, <strong>Pitch</strong> góra i dół, <strong>Roll</strong> przechylenie głowy. <em>Żyroskop</em> oddaje sterowanie czujnikowi telefonu, <em>Auto</em> obraca sceną wolno w kółko. Działa wyłącznie dla plików wielokanałowych.</p>
           <p>Obraca się <strong>pole</strong>, a nie głowa &mdash; przód słuchacza zostaje na miejscu, u góry ekranu. Dlatego litery kierunków F, L, R, B, U, D jadą razem z polem.</p>
 
-          <h3>Nazwy obiektów</h3>
+          <h3 class="sal-modal-h3">Nazwy obiektów</h3>
           <p>Punkty na kuli pojawiają się dopiero wtedy, gdy dorzucisz plik <strong>_SCENA.json</strong> ze Sceny. Każdy punkt to jedno nazwane źródło i <strong>świeci w rytm głośności swojego nagrania</strong>: cichnie, gdy dźwięk cichnie, a na uderzeniu odchodzi od niego fala.</p>
           <p><strong>Promień punktu niesie odległość.</strong> Kula odpowiada 10 metrom: źródło bliżej wpada do środka kuli, dalsze wychodzi na zewnątrz. Odległość nie jest zapisana w samym dźwięku &mdash; bierze się z opisu sceny, a w nagraniu jest już wtopiona w poziom i pogłos.</p>
           <p>Przełącznik <em>Kiedy pokazywać podpisy</em> ma trzy stany. <strong>Z przodu</strong> zapala podpis dopiero wtedy, gdy dane źródło znajdzie się przed Tobą &mdash; to stan domyślny i najspokojniejszy przy wielu źródłach. <strong>Zawsze</strong> pokazuje wszystkie naraz, przygaszając te zza pleców. <strong>Nigdy</strong> zostawia same punkty.</p>
 
-          <h3>Szczegóły sygnału</h3>
+          <h3 class="sal-modal-h3">Szczegóły sygnału</h3>
           <p>Rozwijana sekcja z odczytem tego, co faktycznie siedzi w pliku: liczba kanałów, rozpoznany rząd pola, poziom. Przydaje się, gdy plik brzmi inaczej, niż powinien &mdash; najczęstsza przyczyna to plik opisany jako ambisoniczny, który nim nie jest.</p>
         </div>
 
         <div id="hEco" role="tabpanel" style="display:none">
-          <h3>Gdzie jesteś</h3>
+          <h3 class="sal-modal-h3">Gdzie jesteś</h3>
           <p><strong>Scena</strong> to warsztat: układasz w niej dźwięki wokół słuchacza i eksportujesz gotowy materiał. <strong>Sfera</strong> &mdash; ta aplikacja &mdash; to odsłuch. Obie wychodzą z jednego miejsca, z <a href="/" target="_blank" rel="noopener">Spatial Audio Lab</a>, i obie działają w przeglądarce.</p>
 
-          <h3>Droga od sceny do odsłuchu</h3>
+          <h3 class="sal-modal-h3">Droga od sceny do odsłuchu</h3>
           <p>1. W <strong>Scenie</strong> ułóż dźwięki i kliknij «Eksportuj scenę». Na dysk trafia pięć plików o wspólnej nazwie.</p>
           <p>2. Przeciągnij tutaj plik <strong>AMBIX</strong> &mdash; ten czterokanałowy. To on niesie pole dźwiękowe i to jego można obracać.</p>
           <p>3. Dorzuć plik <strong>SCENA</strong> (z rozszerzeniem .json). Dopiero on zapala na kuli nazwane punkty w miejscach Twoich źródeł.</p>
           <p>Kolejność nie ma znaczenia. Bez pliku AMBIX nie ma czego odtwarzać; bez pliku SCENA zobaczysz samo pole, bez podpisów.</p>
 
-          <h3>Czego nie da się odtworzyć z pliku</h3>
+          <h3 class="sal-modal-h3">Czego nie da się odtworzyć z pliku</h3>
           <p>Pozycja <strong>słuchacza</strong> jest zamrożona na moment eksportu ze Sceny &mdash; to układ odniesienia całego nagrania. Ruch źródeł natomiast zostaje utrwalony i punkty jadą w Sferze dokładnie tam, gdzie słychać dźwięk.</p>
 
-          <h3>Starsze pliki</h3>
+          <h3 class="sal-modal-h3">Starsze pliki</h3>
           <p>Sfera czyta zarówno bieżący, jak i poprzedni format opisu sceny, rozpoznając go po zawartości. Nagrania zrobione przed zmianą formatu działają bez konwersji.</p>
         </div>
 
-        <button class="ov-close" id="helpClose" type="button">Zamknij</button>
       </div>
     </div>
 
     <!-- ============ O PROJEKCIE — §13, oznakowanie KPO/UE w kazdej aplikacji ============ -->
-    <div class="overlay" id="aboutOverlay">
-      <div class="overlay-box">
-        <h2>O <em>projekcie</em></h2>
-        <p><strong>Sfera</strong> jest jednym z narzędzi <strong>Spatial Audio Lab</strong> &mdash; projektu stypendialnego poświęconego dźwiękowi przestrzennemu. W ramach projektu powstaje archiwum nagrań w technologii VR oraz zestaw otwartych narzędzi webowych, dzięki którym ten materiał da się nie tylko odsłuchać, ale i wykorzystać we własnej pracy.</p>
+    <div class="sal-modal-overlay" id="modalOProjekcie" aria-hidden="true">
+      <div class="sal-modal" role="dialog" aria-modal="true" aria-labelledby="modalOProjekcieTitle">
+        <button type="button" class="sal-modal-close" data-close-modal aria-label="Zamknij">&#10005;</button>
+        <h2 id="modalOProjekcieTitle" class="sal-modal-h2">O projekcie</h2>
 
-        <h3>Realizacja</h3>
-        <div class="about-meta">
-          <div class="about-row"><span class="about-key">Stypendysta</span><span class="about-val">Oskar Hamerski</span></div>
-          <div class="about-row"><span class="about-key">Program</span><span class="about-val">Krajowy Plan Odbudowy &mdash; stypendia NIMIT</span></div>
-          <div class="about-row"><span class="about-key">Umowa</span><span class="about-val">143/KPO.STYPENDIA/NIMIT/2025</span></div>
-          <div class="about-row"><span class="about-key">Instytucja wspierająca</span><span class="about-val">Narodowy Instytut Muzyki i Tańca</span></div>
-          <div class="about-row"><span class="about-key">Inwestycja</span><span class="about-val">A2.5.1</span></div>
-          <div class="about-row"><span class="about-key">Technologia</span><span class="about-val">Web Audio API &middot; Ambisonia FOA/HOA &middot; AmbiX</span></div>
+        <p>Sfera to jedno z siedmiu narzędzi <strong>Spatial Audio Lab</strong> &mdash; projektu
+          stypendialnego finansowanego w ramach Krajowego Planu Odbudowy. Powstała jako część
+          archiwum dźwięku przestrzennego łączącego inżynierię dźwięku z edukacją teatralną
+          i technikami uważności.</p>
+
+        <h3 class="sal-modal-h3">Jak to działa</h3>
+        <p>Pole ambisoniczne z pliku jest dekodowane w przeglądarce (Web Audio API) i obracane
+          wokół nieruchomej głowy słuchacza, a następnie renderowane binauralnie przez HRTF.
+          Ta sama rotacja steruje obrazem kuli, więc to, co widzisz, jest dokładnie tym, co
+          słyszysz &mdash; zgodność obu torów jest sprawdzana pomiarem, nie na słuch.</p>
+
+        <h3 class="sal-modal-h3">Metadane</h3>
+        <dl class="sal-modal-meta">
+          <div><dt>Autor</dt><dd>Oskar Hamerski</dd></div>
+          <div><dt>Program</dt><dd>Stypendia kulturowe KPO &mdash; Narodowy Instytut Muzyki i Tańca (NIMiT)</dd></div>
+          <div><dt>Umowa</dt><dd>143/KPO.STYPENDIA/NIMIT/2025</dd></div>
+          <div><dt>Technologia</dt><dd>Web Audio API (HRTF) + ambisonia FOA/HOA w formacie AmbiX</dd></div>
+        </dl>
+
+        <h3 class="sal-modal-h3">Finansowanie</h3>
+        <p>Projekt sfinansowany przez Unię Europejską &mdash; NextGenerationEU. Wsparcie w ramach
+          Krajowego Planu Odbudowy i Zwiększania Odporności, Inwestycja A2.5.1: Program wspierania
+          działalności podmiotów sektora kultury i przemysłów kreatywnych na rzecz stymulowania
+          ich rozwoju. Instytucja Wspierająca: Narodowy Instytut Muzyki i Tańca.</p>
+
+        <div class="sal-kpo-strip">
+          <img src="assets/kpo/KPO.jpg" alt="Logotypy: Krajowy Plan Odbudowy, Rzeczpospolita Polska, Sfinansowane przez Unię Europejską NextGenerationEU">
         </div>
 
-        <p>Sfinansowano ze środków <strong>Krajowego Planu Odbudowy i Zwiększania Odporności</strong> w ramach inwestycji A2.5.1, ze stypendium Narodowego Instytutu Muzyki i Tańca, umowa nr 143/KPO.STYPENDIA/NIMIT/2025.</p>
-        <p>Pełny opis przedsięwzięcia, wskaźniki i pozostałe narzędzia: <a href="/o-projekcie/" target="_blank" rel="noopener">spatial-audio-lab.github.io/o-projekcie</a>.</p>
-
-        <div class="kpo-strip">
-          <img src="assets/brand/kpo-belka.jpg" alt="Logotypy: Krajowy Plan Odbudowy, Rzeczpospolita Polska oraz Sfinansowane przez Unię Europejską NextGenerationEU">
-        </div>
-        <button class="ov-close" id="aboutClose" type="button">Zamknij</button>
+        <p><a href="https://spatial-audio-lab.github.io/o-projekcie/" target="_blank" rel="noopener">Pełne
+          informacje o projekcie (wskaźniki, certyfikaty, kontakt) &#8599;</a></p>
       </div>
     </div>
 
@@ -2772,9 +2799,8 @@
             // Nakladka na wierzchu przejmuje klawiature w calosci: Escape ja zamyka,
             // reszta skrotow milknie. Inaczej Spacja czytana w tle zatrzymywalaby dzwiek
             // zamiast przewinac tresc pomocy.
-            const naWierzchu = nakladkaOtwarta();
-            if (naWierzchu) {
-                if (e.key === 'Escape') { ustawNakladke(naWierzchu, false); e.preventDefault(); }
+            if (nakladkaOtwarta()) {
+                if (e.key === 'Escape') { zamknijWszystkieModale(); e.preventDefault(); }
                 return;
             }
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
@@ -3000,13 +3026,16 @@
             document.getElementById('hudMeter').classList.remove('hidden');
         }
         function updateAudioContextStatus() {
-            // Klasa siedzi na naglowku, nie na samym napisie: dioda przy nazwie i napis
-            // po prawej maja pokazywac ten sam stan, a na waskim ekranie napis znika.
-            const header = document.getElementById('toolHeader');
-            const label = document.getElementById('acLabel');
-            const running = !!(state.audioContext && state.audioContext.state === 'running' && state.isPlaying);
-            header.classList.toggle('running', running);
-            label.textContent = running ? 'Audio Context: Running' : 'Audio Context: Idle';
+            // par.08 v3.1: stan dzwieku niesie DIODA, nie napis. Do v3.0 pasek pokazywal
+            // "Audio Context: Idle/Running"; wzorzec v3.1 tego napisu nie ma, bo dioda
+            // pulsuje i rozchodzi sie pierscieniem, gdy dzwiek gra, a przycisk transportu
+            // i tak mowi stan slowami.
+            const bar = document.getElementById('salBar');
+            const dot = document.getElementById('salStatusDot');
+            if (!bar || !dot) { return; }
+            const gra = !!(state.audioContext && state.audioContext.state === 'running' && state.isPlaying);
+            dot.classList.toggle('is-playing', gra);
+            bar.classList.toggle('is-playing', gra);
         }
 
         // ===========================================
@@ -3751,21 +3780,35 @@
 
 
         // ======================================================================
-        // NAKLADKI PASKA: POMOC i O PROJEKCIE (manifest par.08 v3.1, par.13)
-        // Jedna funkcja na obie, bo roznia sie wylacznie trescia. Nigdy nie stoja
-        // otwarte naraz — obie przykrywaja caly ekran i druga bylaby niewidoczna.
+        // PASEK MARKI v3.1: zakladki, modale, burger
+        // Zachowanie 1:1 z implementacja referencyjna (sekwencer, src/js/header.js):
+        // zakladka z data-modal otwiera okno, zamyka je krzyzyk, klik w tlo i Escape,
+        // a fokus wraca na zakladke, z ktorej okno otwarto.
         // ======================================================================
-        const OV_PRZYCISK = { helpOverlay: 'helpBtn', aboutOverlay: 'aboutBtn' };
-        function ustawNakladke(id, otwarta) {
-            const ov = document.getElementById(id);
-            if (!ov) { return; }
-            ov.classList.toggle('open', otwarta);
-            const b = document.getElementById(OV_PRZYCISK[id]);
-            if (b) { b.classList.toggle('is-open', otwarta); }
+        let ostatniaZakladka = null;
+        function otworzModal(modal, zrodlo) {
+            if (!modal) { return; }
+            ostatniaZakladka = zrodlo || document.activeElement;
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            const x = modal.querySelector('[data-close-modal]');
+            if (x) { x.focus(); }
         }
-        function otworzNakladke(id) {
-            for (const inny in OV_PRZYCISK) { ustawNakladke(inny, inny === id); }
+        function zamknijModal(modal) {
+            if (!modal || !modal.classList.contains('is-open')) { return; }
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            if (ostatniaZakladka && typeof ostatniaZakladka.focus === 'function') { ostatniaZakladka.focus(); }
         }
+        function zamknijWszystkieModale() {
+            document.querySelectorAll('.sal-modal-overlay.is-open').forEach(zamknijModal);
+        }
+        // Czy okno stoi na wierzchu — skroty odtwarzania musza wtedy milczec, inaczej
+        // Spacja czytana w tle zatrzymuje dzwiek zamiast przewinac tresc pomocy.
+        function nakladkaOtwarta() {
+            return !!document.querySelector('.sal-modal-overlay.is-open');
+        }
+
         const OV_ZAKLADKI = { start: ['hTabStart', 'hStart'], panels: ['hTabPanels', 'hPanels'], eco: ['hTabEco', 'hEco'] };
         function ustawZakladkePomocy(nazwa) {
             for (const k in OV_ZAKLADKI) {
@@ -3776,30 +3819,36 @@
                 if (p) { p.style.display = czynna ? '' : 'none'; }
             }
         }
-        (function wepnijNakladki() {
+        (function wepnijPasek() {
             for (const k in OV_ZAKLADKI) {
                 const b = document.getElementById(OV_ZAKLADKI[k][0]);
                 if (b) { b.addEventListener('click', () => ustawZakladkePomocy(k)); }
             }
-            document.getElementById('helpBtn').addEventListener('click', () => {
-                ustawZakladkePomocy('start'); otworzNakladke('helpOverlay');
+            const burger = document.getElementById('salBurger');
+            const menu = document.getElementById('salMobileMenu');
+            if (burger && menu) {
+                burger.addEventListener('click', () => {
+                    const otwarte = menu.classList.toggle('is-open');
+                    burger.setAttribute('aria-expanded', otwarte ? 'true' : 'false');
+                });
+            }
+            document.querySelectorAll('[data-tab]').forEach(el => {
+                el.addEventListener('click', e => {
+                    const id = el.getAttribute('data-modal');
+                    if (id) {
+                        e.preventDefault();
+                        if (id === 'modalPomoc') { ustawZakladkePomocy('start'); }
+                        otworzModal(document.getElementById(id), el);
+                    }
+                    if (menu) { menu.classList.remove('is-open'); }
+                    if (burger) { burger.setAttribute('aria-expanded', 'false'); }
+                });
             });
-            document.getElementById('aboutBtn').addEventListener('click', () => otworzNakladke('aboutOverlay'));
-            document.getElementById('helpClose').addEventListener('click', () => ustawNakladke('helpOverlay', false));
-            document.getElementById('aboutClose').addEventListener('click', () => ustawNakladke('aboutOverlay', false));
-            for (const id in OV_PRZYCISK) {
-                const ov = document.getElementById(id);
-                ov.addEventListener('click', e => { if (e.target === ov) { ustawNakladke(id, false); } });
-            }
+            document.querySelectorAll('.sal-modal-overlay').forEach(ov => {
+                ov.addEventListener('click', e => { if (e.target === ov) { zamknijModal(ov); } });
+                ov.querySelectorAll('[data-close-modal]').forEach(b => b.addEventListener('click', () => zamknijModal(ov)));
+            });
         })();
-        // Czy ktoras nakladka jest na wierzchu — skroty odtwarzania musza wtedy milczec,
-        // inaczej Spacja czytana w tle zatrzymuje dzwiek zamiast przewinac tresc pomocy.
-        function nakladkaOtwarta() {
-            for (const id in OV_PRZYCISK) {
-                if (document.getElementById(id).classList.contains('open')) { return id; }
-            }
-            return null;
-        }
 
         function animationLoop() {
             if (field.ctx) { drawField(); }
