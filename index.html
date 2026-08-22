@@ -954,7 +954,7 @@
                 <div class="dz-title">Upuść tutaj plik audio</div>
                 <div class="dz-sub">albo użyj przycisku <b>Wybierz plik</b> po prawej</div>
                 <div class="dz-formats">WAV &middot; MP3 &middot; Opus &middot; OGG &middot; FLAC &middot; M4A &middot; WebM</div>
-                <div class="dz-formats">ze Sceny możesz dorzucić plik <b>_SCENA.json</b> &mdash; nazwane punkty na kuli</div>
+                <div class="dz-formats">ze Sceny upuść całe archiwum <b>.zip</b> &mdash; Sfera sama weźmie z niego nagranie i nazwane punkty</div>
             </div>
 
             <!-- Stały pasek: legenda + sterowanie. Nic tu nie gaśnie. -->
@@ -997,7 +997,7 @@
                     <button class="btn btn-secondary" id="loadDemoBtn" onclick="loadDemoFile()">Demo: Pociąg</button>
                 </div>
                 <input type="file" id="fileInput" class="sr-only" multiple
-                       accept=".wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac,.mp4,.webm,.weba,.json,audio/*,application/json"
+                       accept=".zip,.wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac,.mp4,.webm,.weba,.json,audio/*,application/json,application/zip"
                        onchange="loadPickedFile()" />
 
                 <div class="status" id="status" role="status" aria-live="polite">Gotów. Wybierz plik albo włącz demo.</div>
@@ -2098,6 +2098,84 @@
         }
 
         // ===========================================
+        // ARCHIWUM ZE SCENY (.zip)
+        // ===========================================
+        // Scena zapisuje cala scene jako jedno archiwum bez kompresji: piec plikow w srodku.
+        // Sferze potrzebne sa dwa — nagranie i opis sceny. Mapa JPG i META zostaja pominiete,
+        // bo nie ma ich gdzie pokazac. Bajty leza w archiwum bez zmian (metoda "stored"),
+        // wiec wystarczy je wyciac; nie ma tu zadnej biblioteki ani dekompresji.
+        function isSceneArchive(f) { return /\.zip$/i.test(f.name) || f.type === 'application/zip'; }
+
+        async function readZipEntries(file) {
+            const buf = new Uint8Array(await file.arrayBuffer());
+            const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+            // Stopka katalogu centralnego stoi na koncu pliku, ale za nia moze byc komentarz
+            // (do 64 kB), wiec szukamy jej wstecz, a nie na stalym przesunieciu.
+            let stopka = -1;
+            const dolna = Math.max(0, buf.length - 65558);
+            for (let i = buf.length - 22; i >= dolna; i--) {
+                if (dv.getUint32(i, true) === 0x06054b50) { stopka = i; break; }
+            }
+            if (stopka < 0) { throw new Error('to nie wygląda na archiwum ZIP'); }
+            const ile = dv.getUint16(stopka + 10, true);
+            let p = dv.getUint32(stopka + 16, true);
+            const dek = new TextDecoder();
+            const wpisy = [];
+            for (let i = 0; i < ile; i++) {
+                if (dv.getUint32(p, true) !== 0x02014b50) { throw new Error('uszkodzony katalog archiwum'); }
+                const metoda = dv.getUint16(p + 10, true);
+                const csize = dv.getUint32(p + 20, true);
+                const nlen = dv.getUint16(p + 28, true);
+                const elen = dv.getUint16(p + 30, true);
+                const klen = dv.getUint16(p + 32, true);
+                const off = dv.getUint32(p + 42, true);
+                const nazwa = dek.decode(buf.subarray(p + 46, p + 46 + nlen));
+                const lnlen = dv.getUint16(off + 26, true);
+                const lelen = dv.getUint16(off + 28, true);
+                const start = off + 30 + lnlen + lelen;
+                wpisy.push({ nazwa: nazwa, metoda: metoda, dane: buf.subarray(start, start + csize) });
+                p += 46 + nlen + elen + klen;
+            }
+            return wpisy;
+        }
+
+        // Wpis moze byc skompresowany, jesli ktos przepakowal archiwum wlasnym narzedziem.
+        // Deflate rozpakowuje sama przegladarka, bez zadnej zaleznosci.
+        async function unpackEntry(w) {
+            if (w.metoda === 0) { return w.dane; }
+            if (w.metoda === 8 && typeof DecompressionStream === 'function') {
+                const ds = new DecompressionStream('deflate-raw');
+                const strumien = new Blob([w.dane]).stream().pipeThrough(ds);
+                return new Uint8Array(await new Response(strumien).arrayBuffer());
+            }
+            throw new Error('wpis ' + w.nazwa + ' używa nieobsługiwanej kompresji');
+        }
+
+        // Z archiwum wychodza gotowe pliki, wiec dalej wszystko idzie ta sama droga,
+        // co przy recznym upuszczeniu WAV-a i JSON-a.
+        async function filesFromArchive(file) {
+            const wpisy = (await readZipEntries(file))
+                .filter(function (w) { return !/\/$/.test(w.nazwa); });   // katalogi pomijamy
+            const audio = wpisy.filter(function (w) {
+                return /\.(wav|wave|mp3|ogg|oga|opus|flac|m4a|aac|mp4|webm|weba)$/i.test(w.nazwa);
+            });
+            // AmbiX ma pierwszenstwo: to jego mozna obracac. Binauralny jest planem awaryjnym,
+            // gdyby ktos zlozyl archiwum bez wersji ambisonicznej.
+            const wybraneAudio = audio.filter(function (w) { return /_AMBIX\./i.test(w.nazwa); })[0] || audio[0];
+            const opis = wpisy.filter(function (w) { return /_SCENA\.json$/i.test(w.nazwa); })[0]
+                     || wpisy.filter(function (w) { return /\.json$/i.test(w.nazwa); })[0];
+            const out = [];
+            if (wybraneAudio) {
+                out.push(new File([await unpackEntry(wybraneAudio)],
+                    wybraneAudio.nazwa.split('/').pop(), { type: 'audio/wav' }));
+            }
+            if (opis) {
+                out.push(new File([await unpackEntry(opis)],
+                    opis.nazwa.split('/').pop(), { type: 'application/json' }));
+            }
+            return out;
+        }
+        // ===========================================
         // WEJŚCIE: audio + opcjonalny opis sceny (_SCENA.json)
         // ===========================================
         // Jedna droga dla wyboru z okna i dla upuszczenia na wizualizację. Kolejność jest
@@ -2107,8 +2185,26 @@
             return /\.json$/i.test(f.name) || f.type === 'application/json';
         }
         async function handleIncomingFiles(files) {
-            const list = Array.from(files || []);
+            let list = Array.from(files || []);
             if (!list.length) { updateStatus('Nie wybrano pliku.', 'error'); return; }
+            // Archiwum ze Sceny rozwijamy juz na wejsciu — dalej nie ma znaczenia, czy pliki
+            // przyszly luzem, czy w .zip.
+            const archiwa = list.filter(isSceneArchive);
+            if (archiwa.length) {
+                try {
+                    updateStatus('Otwieranie archiwum sceny...', 'loading');
+                    let zArchiwum = [];
+                    for (const a of archiwa) { zArchiwum = zArchiwum.concat(await filesFromArchive(a)); }
+                    if (!zArchiwum.length) {
+                        updateStatus('W archiwum nie ma ani nagrania, ani opisu sceny.', 'error');
+                        return;
+                    }
+                    list = list.filter(function (f) { return !isSceneArchive(f); }).concat(zArchiwum);
+                } catch (e) {
+                    updateStatus('Nie udało się otworzyć archiwum: ' + e.message, 'error');
+                    return;
+                }
+            }
             const metas = list.filter(isSceneMetaFile);
             const audios = list.filter(f => !isSceneMetaFile(f));
             if (audios.length) { await loadFile(audios[0]); }
