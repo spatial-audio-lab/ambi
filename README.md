@@ -25,8 +25,11 @@ i czytasz opis sceny zapisany przez **Scenę**. Część zestawu narzędzi
 - **Test orientacji** — impulsy szumu zakodowane kolejno na sześć kierunków. Jeśli
   słyszysz je tam, gdzie mówi napis, tor jest w porządku.
 - **Miernik i limiter** — kontrola poziomu z sygnalizacją clippingu.
-- Wbudowane demo (`pociag.opus`) i ładowanie własnych plików (WAV / MP3 / OGG / Opus /
-  FLAC / M4A).
+- **Sceny demonstracyjne** — pod przyciskiem *Demo* rozwija się lista gotowych scen
+  z `assets/demo` (*Sansula*, *Chodzący zegar*). Każda wczytuje się razem ze swoim
+  `_SCENA.json`, więc punkty na kuli zapalają się od razu.
+- Ładowanie własnych plików (WAV / MP3 / OGG / Opus / FLAC / M4A / WebM) oraz archiwum
+  `.zip` ze Sceny.
 - **Wymagane słuchawki** — bez nich dekodowanie binauralne nie ma sensu.
 
 ## Wizualizacja

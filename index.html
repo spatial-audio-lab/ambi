@@ -524,6 +524,38 @@
 
     .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+    /* Demo: lista scen rozwijana pod przyciskiem. Pozycje buduje setupDemoMenu()
+       z tablicy DEMOS, wiec nazwa sceny jest zapisana w jednym miejscu. */
+    .demo-wrap { position: relative; }
+    .demo-caret {
+        width: 0; height: 0; margin-left: 2px;
+        border-left: 4px solid transparent; border-right: 4px solid transparent;
+        border-top: 5px solid currentColor;
+        transition: transform .2s ease;
+    }
+    #loadDemoBtn[aria-expanded="true"] { border-color: var(--cyan); color: var(--cyan); }
+    #loadDemoBtn[aria-expanded="true"] .demo-caret { transform: rotate(180deg); }
+    .demo-menu {
+        position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+        background: var(--bg2); border: 1px solid var(--border2);
+        display: flex; flex-direction: column;
+    }
+    .demo-item {
+        background: transparent; border: none; border-bottom: 1px solid var(--border);
+        color: var(--cream); cursor: pointer; text-align: left;
+        font-family: var(--display); font-size: 0.82rem; font-weight: 600;
+        min-height: 44px; padding: 9px 14px;
+        display: flex; flex-direction: column; gap: 2px;
+        transition: background .15s ease, color .15s ease;
+    }
+    .demo-item:last-child { border-bottom: none; }
+    .demo-item:hover, .demo-item:focus-visible { background: var(--cyan-dim); color: var(--cyan); outline: none; }
+    .demo-item small {
+        font-family: var(--mono); font-weight: 400; font-size: 0.58rem;
+        letter-spacing: 0.06em; color: var(--dim);
+    }
+    .demo-item:hover small, .demo-item:focus-visible small { color: var(--cyan); }
+
     /* Przelacznik ODTWORZ <-> PAUZA. W ciszy outline cyan, w trakcie grania pelne
        wypelnienie — cyan jest w manifescie (§02) kolorem sygnalu aktywnego, wiec
        "zielony przycisk po wcisnieciu play" realizujemy nim, bez nowego akcentu. */
@@ -994,7 +1026,13 @@
 
                 <div class="btn-row">
                     <button class="btn btn-secondary" id="pickFileBtn" onclick="openFilePicker()">Wybierz plik</button>
-                    <button class="btn btn-secondary" id="loadDemoBtn" onclick="loadDemoFile()">Demo: Pociąg</button>
+                    <!-- Demo rozwija liste scen z assets/demo: nagranie AmbiX + opis _SCENA.json -->
+                    <div class="demo-wrap">
+                        <button class="btn btn-secondary" id="loadDemoBtn" aria-haspopup="true"
+                                aria-expanded="false" aria-controls="demoMenu"
+                                onclick="toggleDemoMenu()">Demo<i class="demo-caret" aria-hidden="true"></i></button>
+                        <div class="demo-menu hidden" id="demoMenu" role="menu" aria-labelledby="loadDemoBtn"></div>
+                    </div>
                 </div>
                 <input type="file" id="fileInput" class="sr-only" multiple
                        accept=".zip,.wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac,.mp4,.webm,.weba,.json,audio/*,application/json,application/zip"
@@ -1276,7 +1314,25 @@
         // ===========================================
         // CONFIG + STATE
         // ===========================================
-        const DEMO_FILE_PATH = 'pociag.opus';
+        // Rejestr scen demonstracyjnych. Kazdy wpis to para plikow z assets/demo:
+        // nagranie AmbiX (4 kanaly) i opis sceny, ktory zapala nazwane punkty na kuli.
+        // Pozycje listy pod przyciskiem Demo buduje z tego setupDemoMenu().
+        const DEMOS = [
+            {
+                id: 'sansula',
+                nazwa: 'Sansula',
+                opis: '4 źródła, 2:00',
+                audio: 'assets/demo/SAL_SCENA_Sansula_AMBIX.webm',
+                scena: 'assets/demo/SAL_SCENA_Sansula_SCENA.json'
+            },
+            {
+                id: 'zegar',
+                nazwa: 'Chodzący zegar',
+                opis: 'orbita wokół słuchacza, 1:00',
+                audio: 'assets/demo/SAL_SCENA_Chodzacy_Zegar_AMBIX.webm',
+                scena: 'assets/demo/SAL_SCENA_Chodzacy_Zegar_SCENA.json'
+            }
+        ];
 
         const BIG_FILE_MB = 150;   // powyżej tego progu ostrzegamy przed dekodowaniem AmbiX do pamięci
 
@@ -2034,7 +2090,7 @@
             if (state.lastFile) {
                 loadFile(state.lastFile, true);
             } else if (state.lastWasDemo) {
-                loadDemoFile(true);
+                loadDemo(state.lastWasDemo, true);
             } else {
                 updateStatus('Najpierw wczytaj plik.', 'error');
             }
@@ -2053,31 +2109,93 @@
         // ===========================================
         // FILE LOADING
         // ===========================================
-        async function loadDemoFile(keepMode) {
-            const btn = document.getElementById('loadDemoBtn');
-            btn.disabled = true;
-            if (!keepMode) { state.sourceMode = 'auto'; }
+        // Lista scen pod przyciskiem Demo. Markup pozycji powstaje z DEMOS, a nie w HTML,
+        // zeby dolozenie sceny bylo jednym wpisem w tablicy.
+        function setupDemoMenu() {
+            const menu = document.getElementById('demoMenu');
+            menu.innerHTML = '';
+            DEMOS.forEach(function (d) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'demo-item';
+                b.setAttribute('role', 'menuitem');
+                b.appendChild(document.createTextNode(d.nazwa));
+                const s = document.createElement('small');
+                s.textContent = d.opis;
+                b.appendChild(s);
+                b.addEventListener('click', function () { loadDemo(d.id); });
+                menu.appendChild(b);
+            });
+            // Zamkniecie: klikniecie poza lista albo Escape. Nasluch na dokumencie,
+            // bo lista nakrywa panele pod soba i nie dostaje ich zdarzen.
+            document.addEventListener('pointerdown', function (e) {
+                const wrap = document.getElementById('loadDemoBtn').parentNode;
+                if (!wrap.contains(e.target)) { closeDemoMenu(); }
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !menu.classList.contains('hidden')) {
+                    closeDemoMenu();
+                    document.getElementById('loadDemoBtn').focus();
+                }
+            });
+        }
+
+        function closeDemoMenu() {
+            document.getElementById('demoMenu').classList.add('hidden');
+            document.getElementById('loadDemoBtn').setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleDemoMenu() {
+            // Na file:// fetch nie przejdzie, wiec lista nie ma po co sie otwierac —
+            // od razu mowimy, dlaczego demo nie zagra.
             if (window.location.protocol === 'file:') {
                 updateStatus('Demo nie działa lokalnie (file://). Wgraj plik ręcznie lub uruchom na serwerze (GitHub Pages).', 'error');
-                btn.disabled = false;
                 return;
             }
+            const menu = document.getElementById('demoMenu');
+            const otwarte = menu.classList.toggle('hidden') === false;
+            document.getElementById('loadDemoBtn').setAttribute('aria-expanded', otwarte ? 'true' : 'false');
+            if (otwarte) { const it = menu.querySelector('.demo-item'); if (it) { it.focus(); } }
+        }
+
+        // Demo idzie ta sama droga, co plik z dysku: najpierw nagranie (ustawia tryb
+        // i czysci poprzednia scene), potem opis sceny. Odwrotna kolejnosc zgasilaby punkty.
+        async function loadDemo(id, keepMode) {
+            const demo = DEMOS.filter(function (d) { return d.id === id; })[0];
+            if (!demo) { updateStatus('Nie ma takiego dema.', 'error'); return; }
+            closeDemoMenu();
+            const btn = document.getElementById('loadDemoBtn');
+            if (window.location.protocol === 'file:') {
+                updateStatus('Demo nie działa lokalnie (file://). Wgraj plik ręcznie lub uruchom na serwerze (GitHub Pages).', 'error');
+                return;
+            }
+            btn.disabled = true;
+            if (!keepMode) { state.sourceMode = 'auto'; }
             state.lastFile = null;
-            state.lastWasDemo = true;
+            state.lastWasDemo = demo.id;   // id, nie flaga: wymuszenie trybu przeladowuje TO demo
             clearSceneMeta();
             try {
                 await initializeAudioContext();
-                updateStatus('Pobieranie pliku demonstracyjnego...', 'loading');
-                const response = await fetch(DEMO_FILE_PATH);
+                updateStatus('Pobieranie dema: ' + demo.nazwa + '...', 'loading');
+                const response = await fetch(demo.audio);
                 if (!response.ok) {
-                    throw new Error('Nie można załadować pliku demo (HTTP ' + response.status + ').');
+                    throw new Error('Nie można załadować nagrania demo (HTTP ' + response.status + ').');
                 }
                 const arrayBuffer = await response.arrayBuffer();
                 const probe = sniffAudioHeader(arrayBuffer.slice(0, 262144));
+                const podpis = demo.nazwa + ' (demo)';
                 if (decideMode(probe) === 'binaural') {
-                    await loadBinauralStream(DEMO_FILE_PATH, 'pociag.opus (demo)', probe, false);
+                    await loadBinauralStream(demo.audio, podpis, probe, false);
                 } else {
-                    await decodeAudioFile(arrayBuffer, 'pociag.opus (demo)', probe);
+                    await decodeAudioFile(arrayBuffer, podpis, probe);
+                }
+                if (demo.scena) {
+                    const r = await fetch(demo.scena);
+                    if (!r.ok) {
+                        throw new Error('Nagranie gra, ale opisu sceny nie ma (HTTP ' + r.status + ').');
+                    }
+                    const nazwaPliku = demo.scena.split('/').pop();
+                    await loadSceneMeta(new File([await r.blob()], nazwaPliku, { type: 'application/json' }));
                 }
             } catch (error) {
                 console.error('Error loading demo:', error);
@@ -3969,6 +4087,7 @@
             syncRotationReadouts();
             applyModeUI();
             setupDropzone();
+            setupDemoMenu();
             document.addEventListener('keydown', onGlobalKey);
             // dopóki nie ma pliku, transport jest poza zasięgiem także z klawiatury
             document.querySelectorAll('#transportPanel button, #transportPanel input')
