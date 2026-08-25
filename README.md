@@ -1,3 +1,5 @@
+![Zestawienie logotypów KPO, RP i UE](https://raw.githubusercontent.com/spatial-audio-lab/spatial-audio-lab.github.io/main/KPO.jpg)
+
 # Sfera — odsłuch pola ambisonicznego
 
 Odtwarzacz nagrań ambisonicznych z dekodowaniem binauralnym w przeglądarce. Obracasz
